@@ -1,0 +1,29 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ourly_bookings
+      POSTGRES_USER: ourly
+      POSTGRES_PASSWORD: ourly_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - ourly_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ourly -d ourly_bookings"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - ourly_redis_data:/data
+
+volumes:
+  ourly_postgres_data:
+  ourly_redis_data:

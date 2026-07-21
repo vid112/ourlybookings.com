@@ -1,0 +1,574 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum PublishStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  EXPIRED
+}
+
+enum MediaResourceType {
+  IMAGE
+  VIDEO
+  RAW
+}
+
+enum EntityType {
+  PROFILE
+  CATEGORY
+  SERVICE
+  STATE
+  CITY
+  AREA
+  PAGE
+  BLOG_POST
+}
+
+enum LeadType {
+  ENQUIRY
+  AD_SUBMISSION
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  CLOSED
+  SPAM
+}
+
+enum ReportStatus {
+  OPEN
+  TRIAGED
+  ACTIONED
+  DISMISSED
+}
+
+enum AnalyticsEventType {
+  PAGE_VIEW
+  PROFILE_VIEW
+  CALL_CLICK
+  WHATSAPP_CLICK
+  FORM_SUBMIT
+  GALLERY_OPEN
+  VIDEO_PLAY
+  SEARCH
+  FILTER
+}
+
+model User {
+  id                String               @id @default(cuid())
+  email             String               @unique
+  passwordHash      String
+  displayName       String
+  isActive          Boolean              @default(true)
+  totpEnabled       Boolean              @default(false)
+  totpSecretCipher  String?
+  lastLoginAt       DateTime?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  deletedAt         DateTime?
+  roles             UserRole[]
+  refreshTokens     RefreshToken[]
+  auditLogs         AuditLog[]           @relation("AuditActor")
+  createdMedia      MediaAsset[]         @relation("MediaCreator")
+  verificationWork  VerificationRecord[] @relation("VerificationReviewer")
+  consentWork       ConsentRecord[]      @relation("ConsentReviewer")
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  name        String           @unique
+  description String?
+  users       UserRole[]
+  permissions RolePermission[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  key         String           @unique
+  description String?
+  roles       RolePermission[]
+  createdAt   DateTime         @default(now())
+}
+
+model UserRole {
+  userId String
+  roleId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+}
+
+model RefreshToken {
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String
+  familyId   String
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  replacedBy String?
+  userAgent  String?
+  ipHash     String?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, familyId])
+  @@index([expiresAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String?
+  before     Json?
+  after      Json?
+  ipHash     String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  actor      User?    @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId])
+}
+
+model SiteSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  isPublic  Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+model Page {
+  id          String        @id @default(cuid())
+  slug        String        @unique
+  title       String
+  status      PublishStatus @default(DRAFT)
+  sections    Json
+  publishedAt DateTime?
+  deletedAt   DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([status, publishedAt])
+}
+
+model Profile {
+  id                 String              @id @default(cuid())
+  displayName        String
+  slug               String              @unique
+  status             PublishStatus       @default(DRAFT)
+  verificationStatus VerificationStatus  @default(PENDING)
+  age                Int
+  nationality        String?
+  languages          String[]
+  shortIntro         String
+  fullBio            String
+  availability       String?
+  pricingNotes       String?
+  contactPhone       String?
+  contactWhatsapp    String?
+  featuredOrder      Int?
+  publishedAt        DateTime?
+  scheduledAt        DateTime?
+  deletedAt          DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  categories         ProfileCategory[]
+  services           ProfileService[]
+  locations          ProfileLocation[]
+  media              ProfileMedia[]
+  verification       VerificationRecord?
+  consents           ConsentRecord[]
+  leads              Lead[]
+  analyticsEvents    AnalyticsEvent[]
+
+  @@index([status, publishedAt])
+  @@index([featuredOrder])
+  @@index([deletedAt])
+}
+
+model Category {
+  id          String            @id @default(cuid())
+  name        String
+  slug        String            @unique
+  description String
+  icon        String?
+  sortOrder   Int               @default(0)
+  isPublished Boolean           @default(false)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  profiles    ProfileCategory[]
+
+  @@index([isPublished, sortOrder])
+}
+
+model ProfileCategory {
+  profileId  String
+  categoryId String
+  profile    Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([profileId, categoryId])
+  @@index([categoryId])
+}
+
+model Service {
+  id          String           @id @default(cuid())
+  name        String
+  slug        String           @unique
+  description String
+  icon        String?
+  sortOrder   Int              @default(0)
+  isPublished Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  profiles    ProfileService[]
+}
+
+model ProfileService {
+  profileId String
+  serviceId String
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@id([profileId, serviceId])
+  @@index([serviceId])
+}
+
+model Country {
+  id        String   @id @default(cuid())
+  name      String
+  code      String   @unique
+  slug      String   @unique
+  states    State[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model State {
+  id          String   @id @default(cuid())
+  countryId   String
+  name        String
+  slug        String
+  type        String
+  description String?
+  isPublished Boolean  @default(false)
+  country     Country  @relation(fields: [countryId], references: [id], onDelete: Restrict)
+  cities      City[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([countryId, slug])
+  @@index([isPublished, name])
+}
+
+model City {
+  id          String            @id @default(cuid())
+  stateId     String
+  name        String
+  slug        String
+  description String?
+  latitude    Float?
+  longitude   Float?
+  isPublished Boolean           @default(false)
+  state       State             @relation(fields: [stateId], references: [id], onDelete: Restrict)
+  areas       Area[]
+  profiles    ProfileLocation[]
+  leads       Lead[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@unique([stateId, slug])
+  @@index([isPublished, name])
+}
+
+model Area {
+  id          String            @id @default(cuid())
+  cityId      String
+  name        String
+  slug        String
+  description String?
+  isPublished Boolean           @default(false)
+  city        City              @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  profiles    ProfileLocation[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@unique([cityId, slug])
+}
+
+model ProfileLocation {
+  profileId String
+  cityId    String
+  areaId    String?
+  isPrimary Boolean @default(false)
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  city      City    @relation(fields: [cityId], references: [id], onDelete: Restrict)
+  area      Area?   @relation(fields: [areaId], references: [id], onDelete: SetNull)
+
+  @@id([profileId, cityId])
+  @@index([cityId, isPrimary])
+  @@index([areaId])
+}
+
+model MediaAsset {
+  id                 String            @id @default(cuid())
+  cloudinaryPublicId String            @unique
+  assetId            String?           @unique
+  secureUrl          String
+  resourceType       MediaResourceType
+  format             String
+  width              Int?
+  height             Int?
+  duration           Float?
+  bytes              Int
+  folder             String
+  version            String?
+  altText            String
+  title              String?
+  caption            String?
+  description        String?
+  tags               String[]
+  focalX             Float             @default(0.5)
+  focalY             Float             @default(0.5)
+  createdById        String?
+  usageStatus        String            @default("ACTIVE")
+  deletedAt          DateTime?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  createdBy          User?             @relation("MediaCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  profiles           ProfileMedia[]
+
+  @@index([folder, resourceType])
+  @@index([usageStatus, deletedAt])
+}
+
+model ProfileMedia {
+  profileId String
+  mediaId   String
+  role      String   @default("GALLERY")
+  sortOrder Int      @default(0)
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  media     MediaAsset @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+
+  @@id([profileId, mediaId])
+  @@index([profileId, role, sortOrder])
+  @@index([mediaId])
+}
+
+model SeoMeta {
+  id                 String     @id @default(cuid())
+  entityType         EntityType
+  entityId           String
+  seoTitle           String
+  metaDescription    String
+  canonicalUrl       String?
+  robotsIndex        Boolean    @default(true)
+  robotsFollow       Boolean    @default(true)
+  ogTitle            String?
+  ogDescription      String?
+  ogImageId          String?
+  twitterTitle       String?
+  twitterDescription String?
+  schemaType         String?
+  customJsonLd       Json?
+  focusKeyword       String?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  @@unique([entityType, entityId])
+  @@index([robotsIndex, entityType])
+}
+
+model Redirect {
+  id         String   @id @default(cuid())
+  sourcePath String   @unique
+  targetPath String
+  statusCode Int      @default(308)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model BlogPost {
+  id          String        @id @default(cuid())
+  slug        String        @unique
+  title       String
+  excerpt     String
+  content     Json
+  status      PublishStatus @default(DRAFT)
+  authorName  String
+  publishedAt DateTime?
+  scheduledAt DateTime?
+  deletedAt   DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([status, publishedAt])
+}
+
+model Faq {
+  id         String     @id @default(cuid())
+  entityType EntityType
+  entityId   String
+  question   String
+  answer     String
+  sortOrder  Int        @default(0)
+  isVisible  Boolean    @default(true)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@index([entityType, entityId, isVisible, sortOrder])
+}
+
+model Lead {
+  id             String     @id @default(cuid())
+  type           LeadType   @default(ENQUIRY)
+  status         LeadStatus @default(NEW)
+  profileId      String?
+  cityId         String?
+  name           String
+  contactMethod  String?
+  phone          String?
+  whatsapp       String?
+  email          String?
+  preferredAt    DateTime?
+  message        String
+  sourcePage     String
+  referrer       String?
+  utmSource      String?
+  utmMedium      String?
+  utmCampaign    String?
+  consentAt      DateTime
+  spamScore      Float      @default(0)
+  retentionUntil DateTime?
+  deletedAt      DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  profile        Profile?   @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  city           City?      @relation(fields: [cityId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([profileId, createdAt])
+}
+
+model VisitorSession {
+  id             String           @id
+  firstSeenAt    DateTime         @default(now())
+  lastSeenAt     DateTime         @default(now())
+  deviceClass    String?
+  browserFamily  String?
+  countryCode    String?
+  cityCoarse     String?
+  consentState   String?
+  expiresAt      DateTime
+  analyticsEvents AnalyticsEvent[]
+
+  @@index([expiresAt])
+}
+
+model AnalyticsEvent {
+  id          String             @id @default(cuid())
+  sessionId   String
+  type        AnalyticsEventType
+  page        String
+  profileId   String?
+  referrer    String?
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  metadata    Json?
+  createdAt   DateTime           @default(now())
+  session     VisitorSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  profile     Profile?           @relation(fields: [profileId], references: [id], onDelete: SetNull)
+
+  @@index([type, createdAt])
+  @@index([profileId, createdAt])
+  @@index([sessionId, createdAt])
+}
+
+model ContentReport {
+  id          String       @id @default(cuid())
+  status      ReportStatus @default(OPEN)
+  reportedUrl String
+  reason      String
+  details     String
+  reporterEmail String?
+  priority    Int          @default(0)
+  actionTaken String?
+  closedAt    DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([status, priority, createdAt])
+}
+
+model VerificationRecord {
+  id             String             @id @default(cuid())
+  profileId      String             @unique
+  status         VerificationStatus @default(PENDING)
+  adultConfirmed Boolean            @default(false)
+  documentType   String?
+  documentRef    String?
+  verifiedAt     DateTime?
+  expiresAt      DateTime?
+  reviewedById   String?
+  privateNotes   String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  profile        Profile            @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  reviewedBy     User?              @relation("VerificationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([status, expiresAt])
+}
+
+model ConsentRecord {
+  id             String   @id @default(cuid())
+  profileId      String
+  consentType    String
+  evidenceRef    String
+  grantedAt      DateTime
+  revokedAt      DateTime?
+  reviewedById   String?
+  privateNotes   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  profile        Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  reviewedBy     User?    @relation("ConsentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([profileId, consentType, revokedAt])
+}
