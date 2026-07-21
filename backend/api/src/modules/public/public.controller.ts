@@ -81,7 +81,7 @@ export class PublicController {
     });
   }
 
-  @Get("locations/:stateSlug/:citySlug?")
+  @Get(["locations/:stateSlug", "locations/:stateSlug/:citySlug"])
   async location(@Param("stateSlug") stateSlug: string, @Param("citySlug") citySlug?: string) {
     return this.prisma.state.findFirstOrThrow({
       where: { slug: stateSlug, isPublished: true },
