@@ -12,7 +12,8 @@
     "format": "prettier --write .",
     "db:generate": "pnpm --filter @ourly/api prisma:generate",
     "db:migrate": "pnpm --filter @ourly/api prisma:migrate",
-    "db:seed": "pnpm --filter @ourly/api prisma:seed"
+    "db:seed": "pnpm --filter @ourly/api prisma:seed",
+    "import:schloka": "pnpm --filter @ourly/api import:schloka"
   },
   "devDependencies": {
     "prettier": "^3.6.2",

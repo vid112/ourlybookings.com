@@ -1,90 +1,105 @@
 import { notFound } from "next/navigation";
+import { AdminModule } from "@/components/admin-module";
+import { adminApi } from "@/lib/api";
 
-const modules: Record<string, { title: string; description: string; actions: string[] }> = {
+const modules = [
+  "profiles",
+  "media",
+  "locations",
+  "seo",
+  "leads",
+  "analytics",
+  "settings",
+] as const;
+type ModuleName = (typeof modules)[number];
+
+const moduleCopy: Record<ModuleName, { title: string; description: string }> = {
   profiles: {
     title: "Profiles",
-    description: "Draft, verify, publish, schedule, archive and safely unpublish profiles.",
-    actions: ["Create profile", "Review verification", "Manage media", "Edit SEO", "Publish"],
+    description: "Create, review, publish and archive profiles with verification safeguards.",
   },
   media: {
     title: "Media library",
-    description: "Signed Cloudinary images and videos with rights, SEO and usage metadata.",
-    actions: [
-      "Upload media",
-      "Edit alt text",
-      "Set focal point",
-      "Check usage",
-      "Controlled delete",
-    ],
+    description: "Edit image metadata, review provenance and see every active profile usage.",
   },
   locations: {
     title: "Locations",
-    description:
-      "India state, city and area hierarchy with publish controls and original local content.",
-    actions: ["Add city", "Edit introduction", "Check thin pages", "Review profiles", "Publish"],
+    description: "Manage the complete India state and city hierarchy and its publication state.",
   },
   seo: {
     title: "SEO centre",
-    description:
-      "Metadata, redirects, sitemap state, missing alt text and content-quality reports.",
-    actions: [
-      "Metadata audit",
-      "Redirect history",
-      "Sitemap status",
-      "Orphan pages",
-      "Structured data",
-    ],
+    description: "Review metadata, redirects and images that still need useful alternative text.",
   },
   leads: {
     title: "Leads and reports",
-    description: "Private enquiries, ad submissions and content reports with retention controls.",
-    actions: [
-      "Triage leads",
-      "Review reports",
-      "Export CSV",
-      "Update status",
-      "Delete expired data",
-    ],
+    description: "Triage enquiries and safety reports without exposing them on the public site.",
   },
   analytics: {
     title: "Analytics",
-    description: "Privacy-conscious sessions, events, locations and conversion funnels.",
-    actions: ["Date range", "Compare period", "Top profiles", "Top locations", "Export"],
+    description: "Review privacy-conscious events collected during the last 30 days.",
   },
   settings: {
     title: "Settings",
-    description:
-      "Brand, contacts, legal text, integrations, roles and environment-backed services.",
-    actions: ["Brand", "Contacts", "Cloudinary", "SMTP", "Roles"],
+    description: "Manage public brand and site configuration stored by the API.",
   },
 };
 
-export function generateStaticParams() {
-  return Object.keys(modules).map((module) => ({ module }));
+async function loadData(module: ModuleName) {
+  if (module === "profiles") {
+    const [profiles, locations] = await Promise.all([
+      adminApi("/admin/profiles"),
+      adminApi("/admin/locations"),
+    ]);
+    return { profiles, locations };
+  }
+  if (module === "leads") {
+    const [leads, reports] = await Promise.all([
+      adminApi("/admin/leads"),
+      adminApi("/admin/content-reports"),
+    ]);
+    return { leads, reports };
+  }
+  const paths: Record<Exclude<ModuleName, "profiles" | "leads">, string> = {
+    media: "/admin/media",
+    locations: "/admin/locations",
+    seo: "/admin/seo",
+    analytics: "/admin/analytics/summary",
+    settings: "/admin/settings",
+  };
+  return adminApi(paths[module]);
 }
+
+export function generateStaticParams() {
+  return modules.map((module) => ({ module }));
+}
+
 export default async function ModulePage({ params }: { params: Promise<{ module: string }> }) {
-  const { module } = await params;
-  const content = modules[module];
-  if (!content) notFound();
+  const { module: requestedModule } = await params;
+  if (!modules.includes(requestedModule as ModuleName)) notFound();
+  const moduleName = requestedModule as ModuleName;
+  const data = await loadData(moduleName);
+  const copy = moduleCopy[moduleName];
   return (
     <>
-      <p className="text-sm font-bold uppercase tracking-[0.16em] text-brand">Admin module</p>
-      <h1 className="mt-3 text-4xl font-bold tracking-[-0.05em]">{content.title}</h1>
-      <p className="mt-4 max-w-3xl text-lg leading-8 text-muted">{content.description}</p>
-      <div className="mt-10 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {content.actions.map((action) => (
-          <div
-            key={action}
-            className="rounded-[18px] border border-white/12 bg-surface p-5 font-semibold text-paper"
-          >
-            {action}
-            <p className="mt-2 text-sm font-normal text-muted">
-              Connected through authenticated `/api/v1/admin` endpoints.
-            </p>
-          </div>
-        ))}
+      <div className="flex flex-wrap items-end justify-between gap-5">
+        <div>
+          <p className="text-sm font-bold uppercase tracking-[0.16em] text-brand">Admin module</p>
+          <h1 className="mt-3 text-4xl font-bold tracking-[-0.05em]">{copy.title}</h1>
+          <p className="mt-4 max-w-3xl text-lg leading-8 text-muted">{copy.description}</p>
+        </div>
+        <span
+          className={`rounded-full border px-4 py-2 text-sm font-bold ${
+            data === null
+              ? "border-red-400/35 bg-red-400/10 text-red-200"
+              : "border-emerald-400/35 bg-emerald-400/10 text-emerald-200"
+          }`}
+        >
+          {data === null ? "API unavailable" : "API connected"}
+        </span>
       </div>
+      <AdminModule module={moduleName} initialData={data} />
     </>
   );
 }
+
 export const dynamicParams = false;

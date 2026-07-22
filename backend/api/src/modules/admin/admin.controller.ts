@@ -7,13 +7,25 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   UseGuards,
 } from "@nestjs/common";
 import { ApiCookieAuth, ApiTags } from "@nestjs/swagger";
+import { Prisma } from "../../generated/prisma/client";
+import { EntityType } from "../../generated/prisma/enums";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AuthGuard } from "../auth/auth.guard";
 import { Roles } from "../auth/roles.decorator";
 import { RolesGuard } from "../auth/roles.guard";
+import {
+  CreateCityDto,
+  UpdateCityDto,
+  UpdateLeadDto,
+  UpdateMediaDto,
+  UpdateReportDto,
+  UpdateSeoDto,
+  UpdateSettingDto,
+} from "./dto/admin.dto";
 import { CreateProfileDto, UpdateProfileDto } from "./dto/profile.dto";
 
 @ApiTags("admin")
@@ -26,15 +38,26 @@ export class AdminController {
 
   @Get("dashboard")
   async dashboard() {
-    const [profiles, leads, reports, events] = await Promise.all([
+    const [profiles, publishedProfiles, leads, reports, events, cities, media] = await Promise.all([
       this.prisma.profile.count({ where: { deletedAt: null } }),
+      this.prisma.profile.count({ where: { status: "PUBLISHED", deletedAt: null } }),
       this.prisma.lead.count({ where: { status: "NEW", deletedAt: null } }),
       this.prisma.contentReport.count({ where: { status: { in: ["OPEN", "TRIAGED"] } } }),
       this.prisma.analyticsEvent.count({
         where: { createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
       }),
+      this.prisma.city.count({ where: { isPublished: true } }),
+      this.prisma.mediaAsset.count({ where: { deletedAt: null } }),
     ]);
-    return { profiles, newLeads: leads, openReports: reports, eventsLast24Hours: events };
+    return {
+      profiles,
+      publishedProfiles,
+      newLeads: leads,
+      openReports: reports,
+      eventsLast24Hours: events,
+      publishedCities: cities,
+      media,
+    };
   }
 
   @Get("profiles")
@@ -42,24 +65,78 @@ export class AdminController {
     return this.prisma.profile.findMany({
       where: { deletedAt: null },
       orderBy: { updatedAt: "desc" },
-      take: 100,
+      take: 200,
       include: {
         verification: { select: { status: true, adultConfirmed: true, verifiedAt: true } },
+        categories: { include: { category: { select: { id: true, name: true } } } },
+        media: {
+          orderBy: { sortOrder: "asc" },
+          take: 1,
+          include: { media: { select: { secureUrl: true, altText: true } } },
+        },
         locations: { where: { isPrimary: true }, include: { city: { include: { state: true } } } },
       },
     });
   }
 
   @Post("profiles")
-  createProfile(@Body() dto: CreateProfileDto) {
-    return this.prisma.profile.create({ data: { ...dto, slug: normalizeSlug(dto.slug) } });
+  async createProfile(@Body() dto: CreateProfileDto) {
+    const { cityId, categoryIds, ...profileData } = dto;
+    return this.prisma.$transaction(async (transaction) => {
+      const profile = await transaction.profile.create({
+        data: { ...profileData, slug: normalizeSlug(dto.slug), status: "DRAFT" },
+      });
+      if (cityId) {
+        await transaction.profileLocation.create({
+          data: { profileId: profile.id, cityId, isPrimary: true },
+        });
+      }
+      if (categoryIds?.length) {
+        await transaction.profileCategory.createMany({
+          data: [...new Set(categoryIds)].map((categoryId) => ({
+            profileId: profile.id,
+            categoryId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+      return profile;
+    });
   }
 
   @Patch("profiles/:id")
-  updateProfile(@Param("id") id: string, @Body() dto: UpdateProfileDto) {
-    return this.prisma.profile.update({
-      where: { id },
-      data: { ...dto, ...(dto.slug ? { slug: normalizeSlug(dto.slug) } : {}) },
+  async updateProfile(@Param("id") id: string, @Body() dto: UpdateProfileDto) {
+    if (dto.status === "PUBLISHED") {
+      throw new BadRequestException("Use the publish action so verification checks are enforced");
+    }
+    const { cityId, categoryIds, ...profileData } = dto;
+    return this.prisma.$transaction(async (transaction) => {
+      const profile = await transaction.profile.update({
+        where: { id },
+        data: {
+          ...profileData,
+          ...(profileData.slug ? { slug: normalizeSlug(profileData.slug) } : {}),
+          ...(profileData.status === "ARCHIVED" ? { publishedAt: null } : {}),
+        },
+      });
+      if (cityId) {
+        await transaction.profileLocation.deleteMany({ where: { profileId: id, isPrimary: true } });
+        await transaction.profileLocation.upsert({
+          where: { profileId_cityId: { profileId: id, cityId } },
+          update: { isPrimary: true },
+          create: { profileId: id, cityId, isPrimary: true },
+        });
+      }
+      if (categoryIds) {
+        await transaction.profileCategory.deleteMany({ where: { profileId: id } });
+        if (categoryIds.length) {
+          await transaction.profileCategory.createMany({
+            data: [...new Set(categoryIds)].map((categoryId) => ({ profileId: id, categoryId })),
+            skipDuplicates: true,
+          });
+        }
+      }
+      return profile;
     });
   }
 
@@ -90,9 +167,110 @@ export class AdminController {
   async deleteProfile(@Param("id") id: string) {
     await this.prisma.profile.update({
       where: { id },
-      data: { deletedAt: new Date(), status: "ARCHIVED" },
+      data: { deletedAt: new Date(), status: "ARCHIVED", publishedAt: null },
     });
     return { deleted: true };
+  }
+
+  @Get("media")
+  media() {
+    return this.prisma.mediaAsset.findMany({
+      where: { deletedAt: null },
+      orderBy: { updatedAt: "desc" },
+      take: 300,
+      include: {
+        profiles: {
+          take: 5,
+          include: { profile: { select: { id: true, displayName: true, slug: true } } },
+        },
+        _count: { select: { profiles: true } },
+      },
+    });
+  }
+
+  @Patch("media/:id")
+  updateMedia(@Param("id") id: string, @Body() dto: UpdateMediaDto) {
+    return this.prisma.mediaAsset.update({ where: { id }, data: dto });
+  }
+
+  @Delete("media/:id")
+  async deleteMedia(@Param("id") id: string) {
+    const activeUsages = await this.prisma.profileMedia.count({ where: { mediaId: id } });
+    if (activeUsages) {
+      throw new BadRequestException(`Media is attached to ${activeUsages} profile(s)`);
+    }
+    await this.prisma.mediaAsset.update({
+      where: { id },
+      data: { deletedAt: new Date(), usageStatus: "ARCHIVED" },
+    });
+    return { deleted: true };
+  }
+
+  @Get("locations")
+  locations() {
+    return this.prisma.state.findMany({
+      orderBy: { name: "asc" },
+      include: {
+        country: { select: { name: true, code: true } },
+        cities: {
+          orderBy: { name: "asc" },
+          include: { _count: { select: { profiles: true } } },
+        },
+      },
+    });
+  }
+
+  @Post("locations/cities")
+  createCity(@Body() dto: CreateCityDto) {
+    return this.prisma.city.create({
+      data: {
+        ...dto,
+        slug: normalizeSlug(dto.slug || dto.name),
+        isPublished: dto.isPublished ?? false,
+      },
+    });
+  }
+
+  @Patch("locations/cities/:id")
+  updateCity(@Param("id") id: string, @Body() dto: UpdateCityDto) {
+    return this.prisma.city.update({
+      where: { id },
+      data: { ...dto, ...(dto.slug ? { slug: normalizeSlug(dto.slug) } : {}) },
+    });
+  }
+
+  @Get("seo")
+  async seo() {
+    const [metadata, missingAlt, redirects] = await Promise.all([
+      this.prisma.seoMeta.findMany({ orderBy: { updatedAt: "desc" }, take: 300 }),
+      this.prisma.mediaAsset.findMany({
+        where: {
+          deletedAt: null,
+          OR: [{ altText: "" }, { altText: { equals: "image", mode: "insensitive" } }],
+        },
+        select: { id: true, secureUrl: true, altText: true },
+        take: 100,
+      }),
+      this.prisma.redirect.findMany({ orderBy: { updatedAt: "desc" }, take: 100 }),
+    ]);
+    return { metadata, missingAlt, redirects };
+  }
+
+  @Put("seo/:entityType/:entityId")
+  updateSeo(
+    @Param("entityType") entityTypeParam: string,
+    @Param("entityId") entityId: string,
+    @Body() dto: UpdateSeoDto,
+  ) {
+    const entityType = entityTypeParam.toUpperCase() as EntityType;
+    if (!Object.values(EntityType).includes(entityType)) {
+      throw new BadRequestException("Unsupported SEO entity type");
+    }
+    return this.prisma.seoMeta.upsert({
+      where: { entityType_entityId: { entityType, entityId } },
+      update: dto,
+      create: { entityType, entityId, ...dto },
+    });
   }
 
   @Get("leads")
@@ -104,6 +282,11 @@ export class AdminController {
     });
   }
 
+  @Patch("leads/:id")
+  updateLead(@Param("id") id: string, @Body() dto: UpdateLeadDto) {
+    return this.prisma.lead.update({ where: { id }, data: dto });
+  }
+
   @Get("content-reports")
   reports() {
     return this.prisma.contentReport.findMany({
@@ -112,18 +295,50 @@ export class AdminController {
     });
   }
 
+  @Patch("content-reports/:id")
+  updateReport(@Param("id") id: string, @Body() dto: UpdateReportDto) {
+    const closed = dto.status === "ACTIONED" || dto.status === "DISMISSED";
+    return this.prisma.contentReport.update({
+      where: { id },
+      data: { ...dto, closedAt: closed ? new Date() : null },
+    });
+  }
+
   @Get("analytics/summary")
   async analytics() {
     const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const [total, byType] = await Promise.all([
+    const [total, byType, topProfiles] = await Promise.all([
       this.prisma.analyticsEvent.count({ where: { createdAt: { gte: since } } }),
       this.prisma.analyticsEvent.groupBy({
         by: ["type"],
         where: { createdAt: { gte: since } },
         _count: { _all: true },
       }),
+      this.prisma.analyticsEvent.groupBy({
+        by: ["profileId"],
+        where: { createdAt: { gte: since }, profileId: { not: null } },
+        _count: { _all: true },
+        orderBy: { _count: { profileId: "desc" } },
+        take: 10,
+      }),
     ]);
-    return { since, total, byType };
+    return { since, total, byType, topProfiles };
+  }
+
+  @Get("settings")
+  settings() {
+    return this.prisma.siteSetting.findMany({ orderBy: { key: "asc" } });
+  }
+
+  @Put("settings/:key")
+  updateSetting(@Param("key") key: string, @Body() dto: UpdateSettingDto) {
+    const normalizedKey = normalizeSlug(key).replace(/-/g, ".");
+    const data = { value: dto.value as Prisma.InputJsonValue, isPublic: dto.isPublic };
+    return this.prisma.siteSetting.upsert({
+      where: { key: normalizedKey },
+      update: data,
+      create: { key: normalizedKey, ...data },
+    });
   }
 }
 

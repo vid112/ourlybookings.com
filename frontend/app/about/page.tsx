@@ -26,8 +26,9 @@ export default function AboutPage() {
             and crawlable city navigation.
           </p>
           <p>
-            All current profile records are fictional demo content. Launch requires licensed media,
-            verified adults, real company information, configured support contacts and legal review.
+            Imported profile records retain source evidence. New publication requires licensed
+            media, verified adults, real company information, configured support contacts and legal
+            review.
           </p>
         </div>
       </div>

@@ -81,6 +81,25 @@ export class PublicController {
     });
   }
 
+  @Get("locations")
+  async locations() {
+    return this.prisma.state.findMany({
+      where: { isPublished: true },
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        cities: {
+          where: { isPublished: true },
+          orderBy: { name: "asc" },
+          select: { id: true, name: true, slug: true, description: true },
+        },
+      },
+    });
+  }
+
   @Get(["locations/:stateSlug", "locations/:stateSlug/:citySlug"])
   async location(@Param("stateSlug") stateSlug: string, @Param("citySlug") citySlug?: string) {
     return this.prisma.state.findFirstOrThrow({
@@ -163,6 +182,8 @@ export class PublicController {
       displayName: true,
       slug: true,
       age: true,
+      nationality: true,
+      verificationStatus: true,
       languages: true,
       shortIntro: true,
       ...(detailed
@@ -175,6 +196,7 @@ export class PublicController {
           }
         : {}),
       categories: { select: { category: { select: { name: true, slug: true } } } },
+      services: { select: { service: { select: { name: true, slug: true } } } },
       locations: {
         where: { isPrimary: true },
         take: 1,

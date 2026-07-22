@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ProfileCard } from "@/components/profile-card";
-import { categories, demoProfiles, getState, indiaStates } from "@/data/india";
+import { categories, indiaStates } from "@/data/india";
+import { getDirectoryLocations, getDirectoryProfiles } from "@/lib/directory";
 
 export const metadata: Metadata = {
   title: "Independent Profiles Across India",
-  description:
-    "Browse fictional demo profiles by Indian state, city and category through an SEO-safe server-rendered directory.",
+  description: "Browse adult profiles by Indian state, city and category on Ourly Bookings.",
   alternates: { canonical: "/profiles" },
 };
 
@@ -17,13 +17,13 @@ type ProfilesPageProps = {
 
 export default async function ProfilesPage({ searchParams }: ProfilesPageProps) {
   const filters = await searchParams;
-  const selectedState = filters.state ? getState(filters.state) : undefined;
-  const profiles = demoProfiles.filter(
-    (profile) =>
-      (!filters.state || profile.stateSlug === filters.state) &&
-      (!filters.city || profile.citySlug === filters.city) &&
-      (!filters.category || profile.category.toLowerCase() === filters.category.toLowerCase()),
-  );
+  const [apiLocations, profiles] = await Promise.all([
+    getDirectoryLocations(),
+    getDirectoryProfiles(filters),
+  ]);
+  const locations = apiLocations?.length ? apiLocations : indiaStates;
+  const selectedState = locations.find((state) => state.slug === filters.state);
+  const hasLiveProfiles = profiles.some((profile) => !profile.isDemo);
 
   return (
     <div className="section-space">
@@ -34,8 +34,8 @@ export default async function ProfilesPage({ searchParams }: ProfilesPageProps) 
             Independent profiles across India
           </h1>
           <p className="mt-6 text-lg leading-8 text-muted">
-            Filter server-rendered demo records by location and category. These profiles are
-            fictional and contain no live contact information.
+            Filter listings by location and category. Every published record passes the admin
+            workflow for adult status, source evidence, consent, media and location.
           </p>
         </div>
         <form
@@ -48,7 +48,7 @@ export default async function ProfilesPage({ searchParams }: ProfilesPageProps) 
             className="min-h-12 rounded-xl border border-white/12 bg-surface-2 px-4"
           >
             <option value="">All states</option>
-            {indiaStates.map((state) => (
+            {locations.map((state) => (
               <option key={state.slug} value={state.slug}>
                 {state.name}
               </option>
@@ -60,9 +60,9 @@ export default async function ProfilesPage({ searchParams }: ProfilesPageProps) 
             className="min-h-12 rounded-xl border border-white/12 bg-surface-2 px-4"
           >
             <option value="">All cities</option>
-            {selectedState?.cities.map((item) => (
-              <option key={item.slug} value={item.slug}>
-                {item.name}
+            {selectedState?.cities.map((city) => (
+              <option key={city.slug} value={city.slug}>
+                {city.name}
               </option>
             ))}
           </select>
@@ -84,7 +84,8 @@ export default async function ProfilesPage({ searchParams }: ProfilesPageProps) 
         </form>
         <div className="mt-10 flex items-center justify-between gap-4">
           <p className="text-sm text-muted">
-            Showing {profiles.length} demo {profiles.length === 1 ? "profile" : "profiles"}
+            Showing {profiles.length} {hasLiveProfiles ? "published" : "demo"}{" "}
+            {profiles.length === 1 ? "profile" : "profiles"}
           </p>
           {filters.state || filters.city || filters.category ? (
             <Link href="/profiles" className="text-sm font-bold text-brand">
@@ -92,11 +93,17 @@ export default async function ProfilesPage({ searchParams }: ProfilesPageProps) 
             </Link>
           ) : null}
         </div>
-        <section className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {profiles.slice(0, 36).map((profile) => (
-            <ProfileCard key={profile.id} profile={profile} />
-          ))}
-        </section>
+        {profiles.length ? (
+          <section className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {profiles.slice(0, 48).map((profile) => (
+              <ProfileCard key={profile.id} profile={profile} />
+            ))}
+          </section>
+        ) : (
+          <div className="mt-8 rounded-[24px] border border-dashed border-white/15 p-10 text-center text-muted">
+            No published profiles match these filters yet.
+          </div>
+        )}
       </div>
     </div>
   );
