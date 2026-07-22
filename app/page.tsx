@@ -16,7 +16,8 @@ import Link from "next/link";
 import { HeroSearch } from "@/components/hero-search";
 import { ProfileCard } from "@/components/profile-card";
 import { SectionHeading } from "@/components/section-heading";
-import { demoProfiles, indiaStates } from "@/data/india";
+import { indiaStates } from "@/data/india";
+import { getDirectoryProfiles } from "@/lib/directory";
 import { siteConfig } from "@/lib/site";
 
 const featuredStates = ["maharashtra", "karnataka", "delhi", "tamil-nadu", "telangana", "gujarat"];
@@ -68,7 +69,8 @@ const faqs = [
   },
 ] as const;
 
-export default function HomePage() {
+export default async function HomePage() {
+  const featuredProfiles = (await getDirectoryProfiles()).slice(0, 3);
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "WebSite",
@@ -147,14 +149,14 @@ export default function HomePage() {
           <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
             <SectionHeading
               title="Featured independent profiles"
-              description="Original demo imagery and fictional profiles show how licensed, consented listings appear after publication."
+              description="Published listings use authorized source images and pass the profile publication workflow."
             />
             <Link href="/profiles" className="shrink-0 font-bold text-brand">
               View all profiles →
             </Link>
           </div>
           <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {demoProfiles.slice(0, 3).map((profile) => (
+            {featuredProfiles.map((profile) => (
               <ProfileCard key={profile.id} profile={profile} />
             ))}
           </div>

@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import { BadgeCheck, Languages, MapPin, MessageCircle, ShieldAlert } from "lucide-react";
+import { BadgeCheck, Languages, MapPin, MessageCircle, Phone, ShieldAlert } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { demoProfiles, getProfile } from "@/data/india";
+import { demoProfiles } from "@/data/india";
+import { getDirectoryProfile } from "@/lib/directory";
 
 type ProfilePageProps = { params: Promise<{ slug: string }> };
 
@@ -14,9 +15,9 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: ProfilePageProps): Promise<Metadata> {
   const { slug } = await params;
-  const profile = getProfile(slug);
+  const profile = await getDirectoryProfile(slug);
   if (!profile) return {};
-  const title = `${profile.name}, ${profile.age} — Demo Profile in ${profile.city}`;
+  const title = `${profile.name}, ${profile.age} in ${profile.city}`;
   return {
     title,
     description: profile.shortBio,
@@ -27,8 +28,9 @@ export async function generateMetadata({ params }: ProfilePageProps): Promise<Me
 
 export default async function ProfilePage({ params }: ProfilePageProps) {
   const { slug } = await params;
-  const profile = getProfile(slug);
+  const profile = await getDirectoryProfile(slug);
   if (!profile) notFound();
+  const whatsappNumber = profile.contactWhatsapp?.replace(/\D/g, "");
 
   return (
     <div className="section-space">
@@ -38,23 +40,35 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
             { label: "Home", href: "/" },
             { label: "Profiles", href: "/profiles" },
             { label: profile.state, href: `/india/${profile.stateSlug}` },
+            { label: profile.city, href: `/india/${profile.stateSlug}/${profile.citySlug}` },
             { label: profile.name },
           ]}
         />
-        <article className="grid overflow-hidden rounded-[28px] border border-white/12 bg-surface lg:grid-cols-[0.85fr_1.15fr]">
-          <div className="relative min-h-[520px] bg-surface-2 lg:min-h-[720px]">
-            <Image
-              src={profile.image}
-              alt={profile.imageAlt}
-              fill
-              priority
-              sizes="(max-width: 1024px) 100vw, 45vw"
-              className="object-cover"
-            />
+        <article className="grid overflow-hidden rounded-[28px] border border-white/12 bg-surface lg:grid-cols-[0.95fr_1.05fr]">
+          <div className="grid gap-2 bg-surface-2 p-2 sm:grid-cols-2">
+            {profile.images.slice(0, 5).map((image, index) => (
+              <div
+                key={image.url}
+                className={`relative overflow-hidden rounded-2xl bg-black ${index === 0 ? "min-h-[520px] sm:col-span-2" : "min-h-64"}`}
+              >
+                <Image
+                  src={image.url}
+                  alt={image.alt}
+                  fill
+                  priority={index === 0}
+                  sizes={
+                    index === 0
+                      ? "(max-width: 1024px) 100vw, 48vw"
+                      : "(max-width: 640px) 100vw, 24vw"
+                  }
+                  className="object-cover"
+                />
+              </div>
+            ))}
           </div>
-          <div className="p-6 sm:p-10 lg:p-14">
+          <div className="p-6 sm:p-10 lg:p-12">
             <div className="inline-flex rounded-full border border-brand/40 bg-brand/10 px-3 py-1.5 text-xs font-bold text-brand">
-              Fictional demo profile
+              {profile.isDemo ? "Fictional demo profile" : "18+ published listing"}
             </div>
             <h1 className="mt-6 font-display text-5xl font-bold tracking-[-0.055em]">
               {profile.name}, {profile.age}
@@ -64,47 +78,87 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
             </p>
             <div className="mt-7 flex flex-wrap gap-5 text-sm text-muted">
               <span className="inline-flex items-center gap-2">
-                <BadgeCheck className="text-success" size={18} /> Adult verification field
+                <BadgeCheck className="text-success" size={18} /> Adult record reviewed
               </span>
               <span className="inline-flex items-center gap-2">
                 <MapPin size={18} /> {profile.city}, {profile.state}
               </span>
-              <span className="inline-flex items-center gap-2">
-                <Languages size={18} /> {profile.languages.join(", ")}
-              </span>
+              {profile.languages.length ? (
+                <span className="inline-flex items-center gap-2">
+                  <Languages size={18} /> {profile.languages.join(", ")}
+                </span>
+              ) : null}
             </div>
-            <p className="mt-8 text-lg leading-8 text-muted">{profile.fullBio}</p>
+            <p className="mt-8 whitespace-pre-line text-lg leading-8 text-muted">
+              {profile.fullBio}
+            </p>
+            {profile.services.length ? (
+              <div className="mt-8 flex flex-wrap gap-2">
+                {profile.services.map((service) => (
+                  <span
+                    key={service}
+                    className="rounded-full border border-white/12 bg-surface-2 px-3 py-1.5 text-sm text-muted"
+                  >
+                    {service}
+                  </span>
+                ))}
+              </div>
+            ) : null}
             <dl className="mt-10 grid gap-5 border-y border-white/12 py-7 sm:grid-cols-2">
               <div>
                 <dt className="text-xs font-bold uppercase tracking-[0.15em] text-muted">
                   Availability
                 </dt>
-                <dd className="mt-2 font-semibold">{profile.availability}</dd>
+                <dd className="mt-2 font-semibold">
+                  {profile.availability ?? "Contact advertiser"}
+                </dd>
               </div>
               <div>
                 <dt className="text-xs font-bold uppercase tracking-[0.15em] text-muted">
-                  Publication state
+                  Gallery
                 </dt>
-                <dd className="mt-2 font-semibold">Demo only — no live contact</dd>
+                <dd className="mt-2 font-semibold">
+                  {profile.images.length} authorized source image(s)
+                </dd>
               </div>
             </dl>
-            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/contact"
-                className="brand-gradient inline-flex items-center justify-center gap-2 rounded-xl px-7 py-4 font-bold"
-              >
-                <MessageCircle size={19} /> Send an enquiry
-              </Link>
+            <div className="mt-9 grid gap-3 sm:grid-cols-2">
+              {profile.contactPhone && !profile.isDemo ? (
+                <a
+                  href={`tel:${profile.contactPhone}`}
+                  className="brand-gradient inline-flex items-center justify-center gap-2 rounded-xl px-6 py-4 font-bold"
+                >
+                  <Phone size={19} /> Call
+                </a>
+              ) : null}
+              {whatsappNumber && !profile.isDemo ? (
+                <a
+                  href={`https://wa.me/${whatsappNumber}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 py-4 font-bold"
+                >
+                  <MessageCircle size={19} /> WhatsApp
+                </a>
+              ) : null}
+              {profile.isDemo ? (
+                <Link
+                  href="/contact"
+                  className="brand-gradient inline-flex items-center justify-center gap-2 rounded-xl px-7 py-4 font-bold"
+                >
+                  <MessageCircle size={19} /> Send an enquiry
+                </Link>
+              ) : null}
               <Link
                 href="/report-content"
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 px-7 py-4 font-bold text-muted hover:text-paper"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 px-6 py-4 font-bold text-muted hover:text-paper"
               >
                 <ShieldAlert size={19} /> Report content
               </Link>
             </div>
             <p className="mt-6 text-xs leading-5 text-muted">
-              No service, identity, availability or verification claim on this demo record
-              represents a real person. Never upload real media without written permission.
+              Ourly Bookings is an advertising directory and does not participate in private
+              arrangements. Adults only; follow local law and obtain clear consent.
             </p>
           </div>
         </article>

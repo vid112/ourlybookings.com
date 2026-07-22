@@ -99,7 +99,8 @@ export function Footer() {
       <div className="border-t border-white/10">
         <div className="site-container flex flex-col gap-3 py-6 text-xs leading-5 text-muted sm:flex-row sm:items-center sm:justify-between">
           <p>
-            © {new Date().getFullYear()} Ourly Bookings. Demo profiles are fictional. India only.
+            © {new Date().getFullYear()} Ourly Bookings. Source-authorized and demo records are
+            clearly labelled. India only.
           </p>
           <p>Adults must follow applicable law and verify information independently.</p>
         </div>

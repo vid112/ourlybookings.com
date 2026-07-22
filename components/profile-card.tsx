@@ -1,9 +1,9 @@
 import { BadgeCheck, Languages, MapPin } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import type { DemoProfile } from "@/data/india";
+import type { DirectoryProfile } from "@/lib/directory";
 
-export function ProfileCard({ profile }: { profile: DemoProfile }) {
+export function ProfileCard({ profile }: { profile: DirectoryProfile }) {
   return (
     <article className="group overflow-hidden rounded-[24px] border border-white/12 bg-surface transition hover:-translate-y-1 hover:border-brand/45">
       <Link href={`/profiles/${profile.slug}`} className="block">
@@ -16,7 +16,7 @@ export function ProfileCard({ profile }: { profile: DemoProfile }) {
             className="object-cover transition duration-500 group-hover:scale-[1.025]"
           />
           <span className="absolute left-4 top-4 rounded-full border border-white/15 bg-black/75 px-3 py-1.5 text-xs font-bold text-paper backdrop-blur">
-            Demo profile
+            {profile.isDemo ? "Demo profile" : "18+ listing"}
           </span>
         </div>
         <div className="p-5 sm:p-6">

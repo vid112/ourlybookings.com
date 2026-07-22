@@ -4,21 +4,21 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ProfileCard } from "@/components/profile-card";
-import { getProfilesByState, getState, indiaStates } from "@/data/india";
+import { getState, indiaStates } from "@/data/india";
+import { getDirectoryLocation, getDirectoryProfiles } from "@/lib/directory";
 import { absoluteUrl } from "@/lib/site";
 
 type StatePageProps = { params: Promise<{ stateSlug: string }> };
-
 export function generateStaticParams() {
   return indiaStates.map((state) => ({ stateSlug: state.slug }));
 }
 
 export async function generateMetadata({ params }: StatePageProps): Promise<Metadata> {
   const { stateSlug } = await params;
-  const state = getState(stateSlug);
+  const state = (await getDirectoryLocation(stateSlug)) ?? getState(stateSlug);
   if (!state) return {};
   const title = `Independent Profiles in ${state.name}`;
-  const description = `Browse city-based adult demo profiles across ${state.name}. ${state.summary}`;
+  const description = `Browse city-based adult profiles across ${state.name} on Ourly Bookings.`;
   return {
     title,
     description,
@@ -29,9 +29,13 @@ export async function generateMetadata({ params }: StatePageProps): Promise<Meta
 
 export default async function StatePage({ params }: StatePageProps) {
   const { stateSlug } = await params;
-  const state = getState(stateSlug);
+  const [apiState, profiles] = await Promise.all([
+    getDirectoryLocation(stateSlug),
+    getDirectoryProfiles({ state: stateSlug }),
+  ]);
+  const state = apiState ?? getState(stateSlug);
   if (!state) notFound();
-  const profiles = getProfilesByState(state.slug);
+  const stateDescription = "description" in state ? state.description : state.summary;
   const breadcrumbJsonLd = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -46,7 +50,6 @@ export default async function StatePage({ params }: StatePageProps) {
       },
     ],
   };
-
   return (
     <div className="section-space">
       <script
@@ -64,28 +67,27 @@ export default async function StatePage({ params }: StatePageProps) {
         <div className="grid gap-10 lg:grid-cols-[1fr_0.75fr] lg:items-end">
           <div>
             <p className="mb-4 text-sm font-bold uppercase tracking-[0.18em] text-brand">
-              {state.type}
+              India directory
             </p>
             <h1 className="text-balance font-display text-5xl font-bold tracking-[-0.055em] sm:text-6xl">
               Independent profiles in {state.name}
             </h1>
           </div>
           <p className="text-lg leading-8 text-muted">
-            {state.summary} Browse by city below. All current records are clearly marked fictional
-            demo content.
+            {stateDescription ?? `Browse published city directories across ${state.name}.`}
           </p>
         </div>
         <section className="mt-16 border-y border-white/12 py-8">
           <h2 className="font-display text-2xl font-bold">Choose a city in {state.name}</h2>
           <div className="mt-6 flex flex-wrap gap-3">
-            {state.cities.map((stateCity) => (
+            {state.cities.map((city) => (
               <Link
-                key={stateCity.slug}
-                href={`/india/${state.slug}/${stateCity.slug}`}
+                key={city.slug}
+                href={`/india/${state.slug}/${city.slug}`}
                 className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-surface px-4 py-3 text-sm font-bold text-muted hover:border-brand/50 hover:text-paper"
               >
                 <MapPin size={15} className="text-brand" />
-                {stateCity.name}
+                {city.name}
               </Link>
             ))}
           </div>
@@ -94,12 +96,9 @@ export default async function StatePage({ params }: StatePageProps) {
           <div className="flex items-end justify-between gap-6">
             <div>
               <h2 className="font-display text-3xl font-bold tracking-[-0.04em]">
-                Profiles by city
+                Published profiles
               </h2>
-              <p className="mt-3 text-muted">
-                One fictional profile is provided for each listed city to verify routing and CMS
-                relationships.
-              </p>
+              <p className="mt-3 text-muted">Listings connected to cities in {state.name}.</p>
             </div>
             <Link
               href={`/profiles?state=${state.slug}`}
@@ -108,19 +107,17 @@ export default async function StatePage({ params }: StatePageProps) {
               View filtered directory →
             </Link>
           </div>
-          <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {profiles.map((profile) => (
-              <ProfileCard key={profile.id} profile={profile} />
-            ))}
-          </div>
-        </section>
-        <section className="mt-20 max-w-3xl border-t border-white/12 pt-12">
-          <h2 className="font-display text-3xl font-bold">Using this {state.name} directory</h2>
-          <p className="mt-5 leading-8 text-muted">
-            Location pages are designed for useful local navigation, not keyword-stuffed doorway
-            pages. New city pages should be published only after a verified profile, original
-            introduction, useful safety information and accurate metadata are ready.
-          </p>
+          {profiles.length ? (
+            <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {profiles.map((profile) => (
+                <ProfileCard key={profile.id} profile={profile} />
+              ))}
+            </div>
+          ) : (
+            <div className="mt-10 rounded-[24px] border border-dashed border-white/15 p-10 text-muted">
+              Cities are ready; published profiles will appear after import and review.
+            </div>
+          )}
         </section>
       </div>
     </div>

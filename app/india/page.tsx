@@ -3,18 +3,33 @@ import { ArrowRight, MapPinned } from "lucide-react";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { indiaStates } from "@/data/india";
+import { DirectoryState, getDirectoryLocations } from "@/lib/directory";
 
 export const metadata: Metadata = {
   title: "Browse Independent Profiles by Indian State and City",
-  description:
-    "Explore all Indian states, union territories and supported cities through server-rendered location pages.",
+  description: "Explore Indian states, union territories and city-based adult listings.",
   alternates: { canonical: "/india" },
 };
 
-export default function IndiaPage() {
-  const states = indiaStates.filter((item) => item.type === "State");
-  const territories = indiaStates.filter((item) => item.type === "Union territory");
-
+export default async function IndiaPage() {
+  const apiLocations = await getDirectoryLocations();
+  const locations = apiLocations?.length ? apiLocations : indiaStates;
+  const territorySlugs = new Set([
+    "andaman-and-nicobar-islands",
+    "chandigarh",
+    "daman",
+    "delhi",
+    "jammu-and-kashmir",
+    "ladakh",
+    "lakshadweep",
+    "puducherry",
+  ]);
+  const states = locations.filter(
+    (item) => !territorySlugs.has(item.slug) && item.type !== "Union territory",
+  );
+  const territories = locations.filter(
+    (item) => territorySlugs.has(item.slug) || item.type === "Union territory",
+  );
   return (
     <div className="section-space">
       <div className="site-container">
@@ -24,19 +39,26 @@ export default function IndiaPage() {
             Explore profiles across India
           </h1>
           <p className="mt-6 text-lg leading-8 text-muted">
-            Choose a state or union territory to see its supported cities and fictional demo
-            profiles. Production location pages are published only when they contain verified
-            profiles and useful unique content.
+            Choose any published state or union territory to open its city directory and available
+            profiles.
           </p>
         </div>
         <LocationGroup title="States" locations={states} />
-        <LocationGroup title="Union territories" locations={territories} />
+        {territories.length ? (
+          <LocationGroup title="Union territories" locations={territories} />
+        ) : null}
       </div>
     </div>
   );
 }
 
-function LocationGroup({ title, locations }: { title: string; locations: typeof indiaStates }) {
+function LocationGroup({
+  title,
+  locations,
+}: {
+  title: string;
+  locations: readonly DirectoryState[];
+}) {
   return (
     <section className="mt-20">
       <h2 className="font-display text-3xl font-bold tracking-[-0.04em]">{title}</h2>
@@ -57,7 +79,11 @@ function LocationGroup({ title, locations }: { title: string; locations: typeof 
             <h3 className="mt-8 font-display text-2xl font-bold tracking-[-0.04em]">
               {location.name}
             </h3>
-            <p className="mt-3 line-clamp-2 leading-6 text-muted">{location.summary}</p>
+            <p className="mt-3 line-clamp-2 leading-6 text-muted">
+              {location.description ??
+                location.summary ??
+                `Browse city-based listings across ${location.name}.`}
+            </p>
             <p className="mt-5 text-sm font-bold text-paper">
               {location.cities.length} {location.cities.length === 1 ? "city" : "cities"}
             </p>
