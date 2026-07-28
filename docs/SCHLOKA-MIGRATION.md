@@ -11,7 +11,7 @@ Profiles with a missing age, an age below 18, or no source image are skipped.
 ```powershell
 $env:SCHLOKA_IMPORT_AUTHORIZED="true"
 $env:SCHLOKA_IMPORT_PUBLISH_CONFIRMED="true"
-corepack pnpm import:schloka -- --cities=mumbai,delhi --max-profiles-per-city=2 --publish
+corepack pnpm import:schloka -- --cities=mumbai,new-delhi --max-pages-per-city=10 --max-profiles-per-city=0 --publish
 ```
 
 If a city listing is temporarily returning an error, bootstrap it from an existing detail URL.
@@ -27,6 +27,12 @@ Import the location hierarchy without profiles:
 $env:SCHLOKA_IMPORT_AUTHORIZED="true"
 corepack pnpm import:schloka -- --locations-only
 ```
+
+The importer follows only pagination links that are publicly present on each city page (up to ten
+pages by default). Set `--max-pages-per-city` to a lower test limit or up to 50 for a larger
+authorized import; `--max-profiles-per-city=0` means no profile cap. It keeps factual fields,
+contact options and the original source CDN image URLs, while generating fresh Ourly descriptions
+from those facts rather than copying the source overview text.
 
 The importer is idempotent: locations, profiles, services, media, verification evidence and SEO
 metadata are updated through stable keys. Network requests happen before short database

@@ -40,6 +40,7 @@ type Options = {
   publish: boolean;
   dryRun: boolean;
   maxProfilesPerCity: number;
+  maxPagesPerCity: number;
   concurrency: number;
   citySlugs: Set<string>;
   profileUrls: string[];
@@ -83,10 +84,13 @@ function parseOptions(): Options {
     locationsOnly: args.includes("--locations-only"),
     publish: args.includes("--publish"),
     dryRun: args.includes("--dry-run"),
+    // Zero means no profile limit. A cap remains available for a small test import.
     maxProfilesPerCity: Math.min(
-      10,
-      Math.max(1, Number(valueOf("--max-profiles-per-city") ?? "1")),
+      2_000,
+      Math.max(0, Number(valueOf("--max-profiles-per-city") ?? "0")),
     ),
+    // Only public pagination links already present on the source page are followed.
+    maxPagesPerCity: Math.min(50, Math.max(1, Number(valueOf("--max-pages-per-city") ?? "10"))),
     concurrency: Math.min(8, Math.max(1, Number(valueOf("--concurrency") ?? "3"))),
     citySlugs,
     profileUrls,
@@ -150,7 +154,42 @@ function parseCityProfileUrls(html: string, city: SourceCity, limit: number) {
     const href = $(link).attr("href");
     if (href) urls.add(new URL(href, SOURCE_BASE).toString());
   });
-  return [...urls].slice(0, limit);
+  const values = [...urls];
+  return limit > 0 ? values.slice(0, limit) : values;
+}
+
+function parseCityListingPageUrls(html: string, city: SourceCity, limit: number) {
+  const $ = load(html);
+  const cityPath = new URL(city.url).pathname.replace(/\/$/, "");
+  const pages = new Map<number, string>([[1, city.url]]);
+  $("a[href]").each((_, link) => {
+    const href = $(link).attr("href");
+    if (!href) return;
+    const url = new URL(href, SOURCE_BASE);
+    if (url.pathname.replace(/\/$/, "") !== cityPath) return;
+    const page = Number(url.searchParams.get("page") ?? "1");
+    if (!Number.isInteger(page) || page < 1 || page > 500) return;
+    url.hash = "";
+    pages.set(page, url.toString());
+  });
+  return [...pages.entries()]
+    .sort(([left], [right]) => left - right)
+    .slice(0, limit)
+    .map(([, url]) => url);
+}
+
+function adaptedProfileCopy(source: SourceProfile, city: SourceCity) {
+  const shortIntro = `${source.displayName} is an independent adult advertiser in ${city.cityName}. Availability, contact options and listed services are supplied by the advertiser.`;
+  const fullBio = [
+    `This Ourly Bookings listing is for ${source.displayName}, age ${source.age}, in ${city.cityName}.`,
+    source.nationality ? `Nationality: ${source.nationality}.` : "",
+    source.languages.length ? `Languages: ${source.languages.join(", ")}.` : "",
+    source.services.length ? `Listed services: ${source.services.join(" · ")}.` : "",
+    "Please contact the advertiser directly to confirm availability and preferences.",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return { shortIntro: clean(shortIntro, 500), fullBio: clean(fullBio, 10_000) };
 }
 
 function sectionText(html: string, heading: string) {
@@ -334,8 +373,7 @@ async function saveProfile(
   publish: boolean,
 ) {
   const profileSlug = `${city.citySlug}-${source.sourceSlug}`.slice(0, 240);
-  const shortIntro = clean(source.title || source.overview, 500);
-  const fullBio = clean(`${source.overview} ${source.services.join(" · ")}`, 10_000);
+  const { shortIntro, fullBio } = adaptedProfileCopy(source, city);
   const category = await prisma.category.upsert({
     where: { slug: "independent" },
     update: { isPublished: true },
@@ -575,10 +613,10 @@ async function main() {
       try {
         const seedHtml = await fetchText(seedUrl);
         const relatedUrls = parseCityProfileUrls(seedHtml, city, options.maxProfilesPerCity);
-        const profileUrls = [seedUrl, ...relatedUrls.filter((url) => url !== seedUrl)].slice(
-          0,
-          options.maxProfilesPerCity,
-        );
+        const profileUrls = [seedUrl, ...relatedUrls.filter((url) => url !== seedUrl)];
+        if (options.maxProfilesPerCity > 0) {
+          profileUrls.splice(options.maxProfilesPerCity);
+        }
         for (const profileUrl of profileUrls) {
           const parsed = parseSourceProfile(
             profileUrl === seedUrl ? seedHtml : await fetchText(profileUrl),
@@ -607,8 +645,23 @@ async function main() {
     : cities.filter((city) => options.citySlugs.has(city.citySlug));
   await mapWithConcurrency(selected, options.concurrency, async (city, index) => {
     try {
-      const listingHtml = await fetchText(city.url);
-      const profileUrls = parseCityProfileUrls(listingHtml, city, options.maxProfilesPerCity);
+      const firstListingHtml = await fetchText(city.url);
+      const listingPages = parseCityListingPageUrls(
+        firstListingHtml,
+        city,
+        options.maxPagesPerCity,
+      );
+      const profileUrls = new Set(
+        parseCityProfileUrls(firstListingHtml, city, options.maxProfilesPerCity),
+      );
+      for (const listingPage of listingPages.filter((url) => url !== city.url)) {
+        const listingHtml = await fetchText(listingPage);
+        for (const profileUrl of parseCityProfileUrls(listingHtml, city, options.maxProfilesPerCity)) {
+          profileUrls.add(profileUrl);
+          if (options.maxProfilesPerCity > 0 && profileUrls.size >= options.maxProfilesPerCity) break;
+        }
+        if (options.maxProfilesPerCity > 0 && profileUrls.size >= options.maxProfilesPerCity) break;
+      }
       for (const profileUrl of profileUrls) {
         try {
           const parsed = parseSourceProfile(await fetchText(profileUrl), profileUrl, 5);
