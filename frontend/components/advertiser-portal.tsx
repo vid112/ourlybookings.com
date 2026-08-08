@@ -190,32 +190,74 @@ function AuthPanel({ mode, setMode, onAuthenticated }: { mode: "login" | "regist
 function AdForm({ options, existing, busy, message, onSubmit, onCancel }: { options: { countries: Country[]; categories: Category[] }; existing: Ad | null; busy: boolean; message: string; onSubmit: (event: FormEvent<HTMLFormElement>) => void; onCancel?: () => void }) {
   const initialStateId = existing?.locations[0]?.city.state.id ?? options.countries[0]?.states[0]?.id ?? "";
   const [stateId, setStateId] = useState(initialStateId);
+  const [step, setStep] = useState(1);
+  const [stepMessage, setStepMessage] = useState("");
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const states = options.countries[0]?.states ?? [];
   const cities = states.find((state) => state.id === stateId)?.cities ?? [];
+  const steps = ["Category & location", "Profile details", "Contact details", "Photos & review"];
+
+  const nextStep = () => {
+    const section = document.querySelector<HTMLElement>(`[data-ad-step="${step}"]`);
+    const fields = Array.from(section?.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>("input, select, textarea") ?? []);
+    for (const field of fields) {
+      if (!field.checkValidity()) { field.reportValidity(); return; }
+    }
+    if (step === 3 && !fields.some((field) => field.value.trim())) {
+      setStepMessage("Phone, WhatsApp, Telegram ya email mein se kam se kam ek contact method bharein.");
+      return;
+    }
+    setStepMessage("");
+    setStep((value) => Math.min(4, value + 1));
+  };
+
   return <form onSubmit={onSubmit} className="surface-border rounded-[24px] bg-surface p-6 sm:p-8">
-    <div className="mb-7 flex items-center justify-between gap-3"><div><h2 className="text-2xl font-bold">{existing ? "Edit advertisement" : "Advertisement details"}</h2><p className="mt-1 text-sm text-muted">All fields are reviewed before publication.</p></div>{onCancel ? <button type="button" onClick={onCancel} className="text-sm font-bold text-brand">Cancel</button> : null}</div>
-    <div className="grid gap-5 sm:grid-cols-2">
-      <Input name="displayName" label="Profile/display name" defaultValue={existing?.displayName} required minLength={2} />
-      <Input name="age" label="Age (18+)" type="number" defaultValue={existing?.age} required min={18} max={99} />
-      <label><Label>Country</Label><select className={fieldClass} disabled><option>India</option></select></label>
-      <label><Label>State</Label><select className={fieldClass} value={stateId} onChange={(e) => setStateId(e.target.value)} required>{states.map((state) => <option key={state.id} value={state.id}>{state.name}</option>)}</select></label>
-      <label><Label>City</Label><select name="cityId" className={fieldClass} defaultValue={existing?.locations[0]?.city.id} required><option value="">Choose city</option>{cities.map((city) => <option key={city.id} value={city.id}>{city.name}</option>)}</select></label>
-      <label><Label>Category</Label><select name="categoryId" className={fieldClass} defaultValue={existing?.categories[0]?.category.id} required><option value="">Choose category</option>{options.categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
-      <Input name="languages" label="Languages (comma separated)" defaultValue={existing?.languages.join(", ")} required />
-      <Input name="nationality" label="Nationality" defaultValue={existing?.nationality} />
-      <Input name="contactPhone" label="Phone" type="tel" defaultValue={existing?.contactPhone} />
-      <Input name="contactWhatsapp" label="WhatsApp" type="tel" defaultValue={existing?.contactWhatsapp} />
-      <Input name="contactTelegram" label="Telegram username/link" defaultValue={existing?.contactTelegram} />
-      <Input name="contactEmail" label="Public contact email" type="email" defaultValue={existing?.contactEmail} />
-      <Input name="availability" label="Availability" defaultValue={existing?.availability} />
-      <Input name="pricingNotes" label="Pricing notes" defaultValue={existing?.pricingNotes} />
+    <div className="mb-7 flex items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">Step {step} of 4</p><h2 className="mt-2 text-2xl font-bold">{steps[step - 1]}</h2><p className="mt-1 text-sm text-muted">Ad publish hone se pehle admin review karega.</p></div>{onCancel ? <button type="button" onClick={onCancel} className="text-sm font-bold text-brand">Cancel</button> : null}</div>
+    <div className="mb-8 grid grid-cols-4 gap-2" aria-label="Advertisement progress">
+      {steps.map((label, index) => <button key={label} type="button" onClick={() => index + 1 < step && setStep(index + 1)} className={`rounded-xl border px-2 py-3 text-left text-xs font-bold ${index + 1 <= step ? "border-brand/50 bg-brand/10 text-paper" : "border-white/10 text-muted"}`}><span className="block text-brand">{index + 1}</span><span className="hidden sm:block">{label}</span></button>)}
     </div>
-    <TextArea name="shortIntro" label="Short introduction" defaultValue={existing?.shortIntro} minLength={20} rows={3} />
-    <TextArea name="fullBio" label="Full advertisement" defaultValue={existing?.fullBio} minLength={50} rows={7} />
-    <label className="mt-5 block"><Label>Photos (up to 8, JPG/PNG/WebP)</Label><input name="images" type="file" accept="image/jpeg,image/png,image/webp" multiple required={!existing?.media.length} className={`${fieldClass} py-3`} /></label>
-    <label className="mt-5 flex gap-3 text-sm leading-6 text-muted"><input type="checkbox" required className="mt-1 size-4 accent-brand" /><span>I confirm I am 18+, this ad is lawful, and I own or have written permission for every detail and image.</span></label>
+
+    <section data-ad-step="1" className={step === 1 ? "grid gap-5 sm:grid-cols-2" : "hidden"}>
+      <label><Label>Country</Label><select className={fieldClass} disabled><option>India</option></select></label>
+      <label><Label>Advertisement category</Label><select name="categoryId" className={fieldClass} defaultValue={existing?.categories[0]?.category.id} required><option value="">Choose category</option>{options.categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
+      <label><Label>State</Label><select className={fieldClass} value={stateId} onChange={(event) => setStateId(event.target.value)} required>{states.map((state) => <option key={state.id} value={state.id}>{state.name}</option>)}</select></label>
+      <label><Label>City</Label><select name="cityId" className={fieldClass} defaultValue={existing?.locations[0]?.city.id} required><option value="">Choose city</option>{cities.map((city) => <option key={city.id} value={city.id}>{city.name}</option>)}</select></label>
+    </section>
+
+    <section data-ad-step="2" className={step === 2 ? "space-y-5" : "hidden"}>
+      <div className="grid gap-5 sm:grid-cols-2">
+        <Input name="displayName" label="Ad title / profile name" defaultValue={existing?.displayName} required minLength={2} maxLength={100} />
+        <Input name="age" label="Age (18+)" type="number" defaultValue={existing?.age} required min={18} max={99} />
+        <Input name="languages" label="Languages (comma separated)" defaultValue={existing?.languages.join(", ")} required placeholder="Hindi, English" />
+        <Input name="nationality" label="Nationality" defaultValue={existing?.nationality} placeholder="Indian" />
+        <Input name="availability" label="Availability" defaultValue={existing?.availability} placeholder="Available daily, 10 AM–10 PM" />
+        <Input name="pricingNotes" label="Rates / pricing information" defaultValue={existing?.pricingNotes} placeholder="Add rates or ask users to contact you" />
+      </div>
+      <TextArea name="shortIntro" label="Short headline/intro" defaultValue={existing?.shortIntro} minLength={20} maxLength={500} rows={3} placeholder="Short summary shown on listing cards" />
+      <TextArea name="fullBio" label="Complete advertisement description" defaultValue={existing?.fullBio} minLength={50} maxLength={10000} rows={7} placeholder="Describe the advertisement, availability, rules and relevant details" />
+    </section>
+
+    <section data-ad-step="3" className={step === 3 ? "grid gap-5 sm:grid-cols-2" : "hidden"}>
+      <Input name="contactPhone" label="Phone number" type="tel" defaultValue={existing?.contactPhone} placeholder="+91…" />
+      <Input name="contactWhatsapp" label="WhatsApp number" type="tel" defaultValue={existing?.contactWhatsapp} placeholder="+91…" />
+      <Input name="contactTelegram" label="Telegram username/link" defaultValue={existing?.contactTelegram} placeholder="@username" />
+      <Input name="contactEmail" label="Public contact email" type="email" defaultValue={existing?.contactEmail} placeholder="contact@example.com" />
+      <p className="sm:col-span-2 text-sm leading-6 text-muted">Visitors ko sirf wahi contact options dikhaye jayenge jo aap yahan bharte hain.</p>
+    </section>
+
+    <section data-ad-step="4" className={step === 4 ? "space-y-6" : "hidden"}>
+      <label className="block"><Label>Photos (1–8, JPG/PNG/WebP)</Label><input name="images" type="file" accept="image/jpeg,image/png,image/webp" multiple required={!existing?.media.length} className={`${fieldClass} py-3`} onChange={(event) => { const files = Array.from(event.target.files ?? []); if (files.length > 8) { event.target.value = ""; setPhotoPreviews([]); setStepMessage("Maximum 8 photos upload kar sakte hain."); return; } setStepMessage(""); setPhotoPreviews(files.map((file) => URL.createObjectURL(file))); }} /></label>
+      {existing?.media.length || photoPreviews.length ? <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">{existing?.media.map((item) => <Image key={item.mediaId} src={item.media.secureUrl} alt={item.media.altText} width={160} height={190} className="aspect-[4/5] w-full rounded-xl object-cover" />)}{photoPreviews.map((url) => <Image key={url} src={url} alt="Selected advertisement preview" width={160} height={190} unoptimized className="aspect-[4/5] w-full rounded-xl object-cover" />)}</div> : null}
+      <div className="rounded-2xl border border-white/12 bg-surface-2 p-5"><h3 className="font-bold">Final review</h3><ul className="mt-3 space-y-2 text-sm leading-6 text-muted"><li>• Location and category determine where the ad appears.</li><li>• Admin checks details, images, consent and payment status.</li><li>• Approval ke baad ad automatically city/state pages par publish hoga.</li><li>• Rejection ya changes request ka reason My Ads dashboard mein milega.</li></ul></div>
+      <label className="flex gap-3 text-sm leading-6 text-muted"><input type="checkbox" required className="mt-1 size-4 accent-brand" /><span>I confirm I am 18+, this ad is lawful, and I own or have written permission for every submitted detail and image.</span></label>
+    </section>
+
+    {stepMessage ? <Notice>{stepMessage}</Notice> : null}
     {message ? <Notice>{message}</Notice> : null}
-    <button disabled={busy} className="brand-gradient mt-7 min-h-13 rounded-xl px-7 font-bold disabled:opacity-60">{busy ? "Uploading and submitting…" : "Save & send for approval"}</button>
+    <div className="mt-8 flex flex-wrap justify-between gap-3">
+      {step > 1 ? <button type="button" onClick={() => { setStepMessage(""); setStep((value) => value - 1); }} className="min-h-12 rounded-xl border border-white/15 px-6 font-bold">Back</button> : <span />}
+      {step < 4 ? <button type="button" onClick={nextStep} className="brand-gradient min-h-12 rounded-xl px-7 font-bold">Continue</button> : <button disabled={busy} className="brand-gradient min-h-13 rounded-xl px-7 font-bold disabled:opacity-60">{busy ? "Uploading and submitting…" : "Submit ad for approval"}</button>}
+    </div>
   </form>;
 }
 
