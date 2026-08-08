@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { BadgeCheck, Languages, MapPin, MessageCircle, Phone, ShieldAlert } from "lucide-react";
+import { BadgeCheck, Languages, Mail, MapPin, MessageCircle, Phone, Send, ShieldAlert } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -31,6 +31,11 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
   const profile = await getDirectoryProfile(slug);
   if (!profile) notFound();
   const whatsappNumber = profile.contactWhatsapp?.replace(/\D/g, "");
+  const telegramUrl = profile.contactTelegram
+    ? profile.contactTelegram.startsWith("http")
+      ? profile.contactTelegram
+      : `https://t.me/${profile.contactTelegram.replace(/^@/, "")}`
+    : undefined;
 
   return (
     <div className="section-space">
@@ -139,6 +144,16 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
                   className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 py-4 font-bold"
                 >
                   <MessageCircle size={19} /> WhatsApp
+                </a>
+              ) : null}
+              {telegramUrl && !profile.isDemo ? (
+                <a href={telegramUrl} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-600 px-6 py-4 font-bold">
+                  <Send size={19} /> Telegram
+                </a>
+              ) : null}
+              {profile.contactEmail && !profile.isDemo ? (
+                <a href={`mailto:${profile.contactEmail}`} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 px-6 py-4 font-bold">
+                  <Mail size={19} /> Email
                 </a>
               ) : null}
               {profile.isDemo ? (

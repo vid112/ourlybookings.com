@@ -34,6 +34,7 @@ export function Header() {
           <span className="rounded-xl border border-white/12 px-3 py-2 text-xs text-muted">
             🇮🇳 India
           </span>
+          <Link href="/account" className="rounded-xl border border-white/12 px-4 py-3 text-sm font-bold text-muted hover:text-paper">My Ads</Link>
           <Link
             href="/post-ad"
             className="brand-gradient rounded-xl px-5 py-3 text-sm font-bold text-white shadow-lg shadow-brand/15 hover:brightness-110"
@@ -76,6 +77,7 @@ export function Header() {
             >
               Post Your Ad
             </Link>
+            <Link href="/account" onClick={() => setOpen(false)} className="rounded-xl px-4 py-3 text-center font-bold text-muted">My Ads / Login</Link>
           </div>
         </nav>
       ) : null}

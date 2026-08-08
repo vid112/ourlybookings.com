@@ -20,6 +20,8 @@ export type DirectoryProfile = {
   pricingNotes?: string;
   contactPhone?: string;
   contactWhatsapp?: string;
+  contactTelegram?: string;
+  contactEmail?: string;
   image: string;
   imageAlt: string;
   images: readonly { url: string; alt: string; title?: string }[];
@@ -40,6 +42,8 @@ type ApiProfile = {
   pricingNotes?: string;
   contactPhone?: string;
   contactWhatsapp?: string;
+  contactTelegram?: string;
+  contactEmail?: string;
   categories: { category: { name: string; slug: string } }[];
   services: { service: { name: string; slug: string } }[];
   locations: { city: { name: string; slug: string; state: { name: string; slug: string } } }[];
@@ -101,6 +105,8 @@ function fromApi(profile: ApiProfile): DirectoryProfile | null {
     pricingNotes: profile.pricingNotes,
     contactPhone: profile.contactPhone,
     contactWhatsapp: profile.contactWhatsapp,
+    contactTelegram: profile.contactTelegram,
+    contactEmail: profile.contactEmail,
     image: images[0].url,
     imageAlt: images[0].alt,
     images,
