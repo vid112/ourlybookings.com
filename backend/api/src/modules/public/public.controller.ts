@@ -20,12 +20,38 @@ export class PublicController {
     return Object.fromEntries(settings.map(({ key, value }) => [key, value]));
   }
 
+  @Get("ad-options")
+  async adOptions() {
+    const [countries, categories] = await Promise.all([
+      this.prisma.country.findMany({
+        orderBy: { name: "asc" },
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          states: {
+            where: { isPublished: true },
+            orderBy: { name: "asc" },
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              cities: { where: { isPublished: true }, orderBy: { name: "asc" }, select: { id: true, name: true, slug: true } },
+            },
+          },
+        },
+      }),
+      this.prisma.category.findMany({ where: { isPublished: true }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true, slug: true } }),
+    ]);
+    return { countries, categories };
+  }
+
   @Get("home")
   async home() {
     const [profiles, states, posts] = await Promise.all([
       this.prisma.profile.findMany({
-        where: { status: "PUBLISHED", deletedAt: null },
-        orderBy: [{ featuredOrder: "asc" }, { publishedAt: "desc" }],
+        where: { status: "PUBLISHED", moderationStatus: "APPROVED", deletedAt: null },
+        orderBy: [{ adminPriority: "desc" }, { promotionAmount: "desc" }, { publishedAt: "desc" }],
         take: 6,
         select: this.publicProfileSelect(),
       }),
@@ -54,6 +80,7 @@ export class PublicController {
     return this.prisma.profile.findMany({
       where: {
         status: "PUBLISHED",
+        moderationStatus: "APPROVED",
         deletedAt: null,
         ...(state || city
           ? {
@@ -67,7 +94,7 @@ export class PublicController {
           : {}),
         ...(category ? { categories: { some: { category: { slug: category } } } } : {}),
       },
-      orderBy: [{ featuredOrder: "asc" }, { publishedAt: "desc" }],
+      orderBy: [{ adminPriority: "desc" }, { promotionAmount: "desc" }, { publishedAt: "desc" }],
       take: 48,
       select: this.publicProfileSelect(),
     });
@@ -76,7 +103,7 @@ export class PublicController {
   @Get("profiles/:slug")
   async profile(@Param("slug") slug: string) {
     return this.prisma.profile.findFirstOrThrow({
-      where: { slug, status: "PUBLISHED", deletedAt: null },
+      where: { slug, status: "PUBLISHED", moderationStatus: "APPROVED", deletedAt: null },
       select: this.publicProfileSelect(true),
     });
   }
@@ -193,6 +220,8 @@ export class PublicController {
             pricingNotes: true,
             contactPhone: true,
             contactWhatsapp: true,
+            contactTelegram: true,
+            contactEmail: true,
           }
         : {}),
       categories: { select: { category: { select: { name: true, slug: true } } } },

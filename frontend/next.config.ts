@@ -6,7 +6,10 @@ const nextConfig: NextConfig = {
   compress: true,
   images: {
     formats: ["image/avif", "image/webp"],
-    remotePatterns: [{ protocol: "https", hostname: "cdn.schloka.com" }],
+    remotePatterns: [
+      { protocol: "https", hostname: "res.cloudinary.com" },
+      { protocol: "https", hostname: "cdn.schloka.com" },
+    ],
   },
   turbopack: { root: path.resolve(process.cwd(), "..") },
   async headers() {

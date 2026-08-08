@@ -1,10 +1,13 @@
-import { Body, Controller, Post, Req, Res } from "@nestjs/common";
+import { Body, Controller, Get, Post, Req, Res, UseGuards } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { ApiTags } from "@nestjs/swagger";
 import { Throttle, minutes } from "@nestjs/throttler";
 import type { Request, Response } from "express";
 import { AuthService } from "./auth.service";
 import { LoginDto } from "./dto/login.dto";
+import { RegisterDto } from "./dto/register.dto";
+import { AuthGuard } from "./auth.guard";
+import type { AuthenticatedRequest } from "./auth.types";
 
 @ApiTags("authentication")
 @Controller("auth")
@@ -13,6 +16,24 @@ export class AuthController {
     private readonly auth: AuthService,
     private readonly config: ConfigService,
   ) {}
+
+  @Post("register")
+  @Throttle({ default: { limit: 3, ttl: minutes(10) } })
+  async register(
+    @Body() dto: RegisterDto,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const session = await this.auth.register(dto.displayName, dto.email, dto.password, request.get("user-agent"));
+    this.writeCookies(response, session.accessToken, session.refreshToken);
+    return { user: session.user };
+  }
+
+  @Get("me")
+  @UseGuards(AuthGuard)
+  me(@Req() request: AuthenticatedRequest) {
+    return { user: request.user };
+  }
 
   @Post("login")
   @Throttle({ default: { limit: 5, ttl: minutes(5) } })

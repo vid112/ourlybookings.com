@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { ConflictException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { hash, verify } from "argon2";
@@ -13,6 +13,27 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
   ) {}
+
+  async register(displayName: string, email: string, password: string, userAgent?: string) {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (await this.prisma.user.findUnique({ where: { email: normalizedEmail } })) {
+      throw new ConflictException("An account already exists for this email");
+    }
+    const advertiserRole = await this.prisma.role.upsert({
+      where: { name: "Advertiser" },
+      update: {},
+      create: { name: "Advertiser", description: "Can create and manage own advertisements" },
+    });
+    const user = await this.prisma.user.create({
+      data: {
+        email: normalizedEmail,
+        displayName: displayName.trim(),
+        passwordHash: await hash(password),
+        roles: { create: { roleId: advertiserRole.id } },
+      },
+    });
+    return this.createSession(user, ["Advertiser"], userAgent);
+  }
 
   async login(email: string, password: string, userAgent?: string) {
     const user = await this.prisma.user.findUnique({

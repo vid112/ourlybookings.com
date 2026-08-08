@@ -160,3 +160,31 @@ export class ImportSourceDto {
   @Max(5)
   imageLimit?: number;
 }
+
+export class ModerateProfileDto {
+  @IsIn(["APPROVED", "REJECTED", "CHANGES_REQUESTED"])
+  decision: "APPROVED" | "REJECTED" | "CHANGES_REQUESTED";
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  message?: string;
+
+  @IsOptional()
+  @IsIn(["NOT_REQUIRED", "PENDING", "PAID", "FAILED"])
+  paymentStatus?: "NOT_REQUIRED" | "PENDING" | "PAID" | "FAILED";
+}
+
+export class RankProfileDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(1000000)
+  promotionAmount: number;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(-10000)
+  @Max(10000)
+  adminPriority: number;
+}

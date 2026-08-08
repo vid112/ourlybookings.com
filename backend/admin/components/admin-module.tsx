@@ -21,6 +21,12 @@ type Profile = {
   age: number;
   status: string;
   verificationStatus: string;
+  moderationStatus: string;
+  paymentStatus: string;
+  promotionAmount: number;
+  adminPriority: number;
+  moderationMessage?: string;
+  owner?: { email: string; displayName: string };
   updatedAt: string;
   locations: { city: { name: string; state: { name: string } } }[];
   media: { media: { secureUrl: string; altText: string } }[];
@@ -180,14 +186,38 @@ function ProfilesModule({ data }: { data: unknown }) {
                     ? `${profile.locations[0].city.name}, ${profile.locations[0].city.state.name}`
                     : "No primary city"}
                 </p>
+                {profile.owner ? <p className="mt-1 text-xs text-muted">Advertiser: {profile.owner.email}</p> : null}
                 <div className="mt-2 flex flex-wrap gap-2 text-xs font-bold">
                   <span className="rounded-full bg-white/8 px-2.5 py-1">{profile.status}</span>
                   <span className="rounded-full bg-white/8 px-2.5 py-1">
                     {profile.verificationStatus}
                   </span>
+                  <span className="rounded-full bg-white/8 px-2.5 py-1">{profile.moderationStatus}</span>
+                  <span className="rounded-full bg-white/8 px-2.5 py-1">Payment: {profile.paymentStatus}</span>
+                  <span className="rounded-full bg-white/8 px-2.5 py-1">₹{profile.promotionAmount} · Priority {profile.adminPriority}</span>
                 </div>
+                {profile.moderationMessage ? <p className="mt-2 text-xs text-muted">Message: {profile.moderationMessage}</p> : null}
               </div>
               <div className="flex gap-2">
+                {profile.moderationStatus === "PENDING" || profile.moderationStatus === "CHANGES_REQUESTED" || profile.moderationStatus === "REJECTED" ? (
+                  <button
+                    disabled={pending}
+                    onClick={() => run(() => request(`/admin/profiles/${profile.id}/moderate`, "POST", { decision: "APPROVED", paymentStatus: "PAID", message: "Approved and published" }), "Advertisement approved and published.")}
+                    className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold disabled:opacity-50"
+                  >Approve</button>
+                ) : null}
+                {profile.moderationStatus === "PENDING" ? (
+                  <button
+                    disabled={pending}
+                    onClick={() => { const reason = window.prompt("Rejection/payment message for advertiser", "Your payment is pending. Contact support by WhatsApp, Telegram or email."); if (reason) run(() => request(`/admin/profiles/${profile.id}/moderate`, "POST", { decision: "REJECTED", paymentStatus: "PENDING", message: reason }), "Advertisement rejected and advertiser notified."); }}
+                    className="rounded-lg border border-amber-400/40 px-3 py-2 text-sm font-bold text-amber-200 disabled:opacity-50"
+                  >Reject</button>
+                ) : null}
+                <button
+                  disabled={pending}
+                  onClick={() => { const amount = window.prompt("Promotion amount in INR", String(profile.promotionAmount)); if (amount === null) return; const priority = window.prompt("Admin priority (higher appears first)", String(profile.adminPriority)); if (priority === null) return; run(() => request(`/admin/profiles/${profile.id}/rank`, "PATCH", { promotionAmount: Number(amount), adminPriority: Number(priority) }), "Ranking updated."); }}
+                  className="rounded-lg border border-white/15 px-3 py-2 text-sm font-bold disabled:opacity-50"
+                >Rank</button>
                 {profile.status !== "PUBLISHED" ? (
                   <button
                     disabled={pending}

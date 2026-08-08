@@ -53,6 +53,7 @@ async function main() {
     "Content Editor",
     "Media Manager",
     "Analyst",
+    "Advertiser",
   ]) {
     await prisma.role.upsert({ where: { name }, update: {}, create: { name } });
   }
@@ -111,16 +112,20 @@ async function main() {
     }
   }
 
-  for (const [index, categoryName] of [
-    "Independent",
-    "Model",
-    "VIP",
-    "College",
-    "Massage",
-  ].entries()) {
+  const publicCategories = [
+    "Call Girls",
+    "Gigolo Services",
+    "Girls Massage Services",
+    "Escort Services",
+  ];
+  await prisma.category.updateMany({
+    where: { slug: { notIn: publicCategories.map(slugify) } },
+    data: { isPublished: false },
+  });
+  for (const [index, categoryName] of publicCategories.entries()) {
     await prisma.category.upsert({
       where: { slug: slugify(categoryName) },
-      update: {},
+      update: { name: categoryName, sortOrder: index, isPublished: true },
       create: {
         name: categoryName,
         slug: slugify(categoryName),

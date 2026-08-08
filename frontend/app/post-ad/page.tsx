@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { BadgeCheck, FileCheck2, ShieldCheck } from "lucide-react";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { SubmissionForm } from "@/components/submission-form";
+import { AdvertiserPortal } from "@/components/advertiser-portal";
 import { AgeGate } from "@/components/age-gate";
 
 export const metadata: Metadata = {
@@ -42,7 +42,7 @@ export default function PostAdPage() {
                 ))}
               </ul>
             </div>
-            <SubmissionForm kind="post-ad" />
+            <AdvertiserPortal />
           </div>
         </div>
       </div>

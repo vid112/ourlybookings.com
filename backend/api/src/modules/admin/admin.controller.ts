@@ -8,6 +8,7 @@ import {
   Patch,
   Post,
   Put,
+  Req,
   UseGuards,
 } from "@nestjs/common";
 import { ApiCookieAuth, ApiTags } from "@nestjs/swagger";
@@ -17,6 +18,7 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { AuthGuard } from "../auth/auth.guard";
 import { Roles } from "../auth/roles.decorator";
 import { RolesGuard } from "../auth/roles.guard";
+import type { AuthenticatedRequest } from "../auth/auth.types";
 import {
   CreateCityDto,
   UpdateCityDto,
@@ -25,6 +27,8 @@ import {
   UpdateReportDto,
   UpdateSeoDto,
   UpdateSettingDto,
+  ModerateProfileDto,
+  RankProfileDto,
 } from "./dto/admin.dto";
 import { CreateProfileDto, UpdateProfileDto } from "./dto/profile.dto";
 
@@ -75,6 +79,7 @@ export class AdminController {
           include: { media: { select: { secureUrl: true, altText: true } } },
         },
         locations: { where: { isPrimary: true }, include: { city: { include: { state: true } } } },
+        owner: { select: { id: true, email: true, displayName: true } },
       },
     });
   }
@@ -161,6 +166,47 @@ export class AdminController {
       where: { id },
       data: { status: "PUBLISHED", publishedAt: new Date() },
     });
+  }
+
+  @Post("profiles/:id/moderate")
+  async moderateProfile(
+    @Param("id") id: string,
+    @Body() dto: ModerateProfileDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    const profile = await this.prisma.profile.findUniqueOrThrow({
+      where: { id },
+      include: { media: true, locations: true },
+    });
+    if (dto.decision === "APPROVED") {
+      if (!profile.media.length) throw new BadRequestException("At least one image is required");
+      if (!profile.locations.length) throw new BadRequestException("A primary city is required");
+      await this.prisma.$transaction([
+        this.prisma.verificationRecord.upsert({
+          where: { profileId: id },
+          update: { status: "VERIFIED", adultConfirmed: true, verifiedAt: new Date(), reviewedById: request.user.id, privateNotes: dto.message },
+          create: { profileId: id, status: "VERIFIED", adultConfirmed: true, verifiedAt: new Date(), reviewedById: request.user.id, privateNotes: dto.message },
+        }),
+        this.prisma.consentRecord.create({
+          data: { profileId: id, consentType: "PUBLICATION", evidenceRef: "advertiser-self-attestation", grantedAt: profile.submittedAt ?? new Date(), reviewedById: request.user.id },
+        }),
+        this.prisma.profile.update({
+          where: { id },
+          data: { moderationStatus: "APPROVED", verificationStatus: "VERIFIED", paymentStatus: dto.paymentStatus ?? "NOT_REQUIRED", moderationMessage: dto.message ?? "Approved by administrator", status: "PUBLISHED", publishedAt: new Date() },
+        }),
+      ]);
+    } else {
+      await this.prisma.profile.update({
+        where: { id },
+        data: { moderationStatus: dto.decision, paymentStatus: dto.paymentStatus ?? (dto.decision === "REJECTED" ? "PENDING" : profile.paymentStatus), moderationMessage: dto.message ?? (dto.decision === "REJECTED" ? "Payment or verification is pending. Contact support for assistance." : "Please update the requested details."), status: "DRAFT", publishedAt: null },
+      });
+    }
+    return this.prisma.profile.findUniqueOrThrow({ where: { id } });
+  }
+
+  @Patch("profiles/:id/rank")
+  rankProfile(@Param("id") id: string, @Body() dto: RankProfileDto) {
+    return this.prisma.profile.update({ where: { id }, data: dto });
   }
 
   @Delete("profiles/:id")

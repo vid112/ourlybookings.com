@@ -9,6 +9,7 @@ import { MediaModule } from "./modules/media/media.module";
 import { PublicModule } from "./modules/public/public.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { validateEnvironment } from "./config/env";
+import { AdvertiserModule } from "./modules/advertiser/advertiser.module";
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { validateEnvironment } from "./config/env";
     PublicModule,
     MediaModule,
     AdminModule,
+    AdvertiserModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

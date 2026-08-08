@@ -22,6 +22,21 @@ enum VerificationStatus {
   EXPIRED
 }
 
+enum ModerationStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  CHANGES_REQUESTED
+}
+
+enum PaymentStatus {
+  NOT_REQUIRED
+  PENDING
+  PAID
+  FAILED
+}
+
 enum MediaResourceType {
   IMAGE
   VIDEO
@@ -89,6 +104,7 @@ model User {
   createdMedia      MediaAsset[]         @relation("MediaCreator")
   verificationWork  VerificationRecord[] @relation("VerificationReviewer")
   consentWork       ConsentRecord[]      @relation("ConsentReviewer")
+  profiles          Profile[]            @relation("ProfileOwner")
 }
 
 model Role {
@@ -192,6 +208,9 @@ model Profile {
   slug               String              @unique
   status             PublishStatus       @default(DRAFT)
   verificationStatus VerificationStatus  @default(PENDING)
+  moderationStatus   ModerationStatus    @default(DRAFT)
+  paymentStatus      PaymentStatus       @default(NOT_REQUIRED)
+  ownerId            String?
   age                Int
   nationality        String?
   languages          String[]
@@ -201,6 +220,12 @@ model Profile {
   pricingNotes       String?
   contactPhone       String?
   contactWhatsapp    String?
+  contactTelegram    String?
+  contactEmail       String?
+  promotionAmount    Int                 @default(0)
+  adminPriority      Int                 @default(0)
+  moderationMessage  String?
+  submittedAt        DateTime?
   featuredOrder      Int?
   publishedAt        DateTime?
   scheduledAt        DateTime?
@@ -215,9 +240,13 @@ model Profile {
   consents           ConsentRecord[]
   leads              Lead[]
   analyticsEvents    AnalyticsEvent[]
+  owner              User?               @relation("ProfileOwner", fields: [ownerId], references: [id], onDelete: SetNull)
 
   @@index([status, publishedAt])
   @@index([featuredOrder])
+  @@index([moderationStatus, submittedAt])
+  @@index([adminPriority, promotionAmount])
+  @@index([ownerId, updatedAt])
   @@index([deletedAt])
 }
 

@@ -12,7 +12,7 @@ All included profiles and images are fictional demo content. Replace them only w
 
 ## Local setup
 
-1. Copy `.env.example` to `.env` and replace every secret.
+1. Copy `backend/api/.env.example` to `backend/api/.env` and `frontend/.env.example` to `frontend/.env.local`; replace every secret and configure Cloudinary for advertiser image uploads.
 2. Start PostgreSQL and Redis: `docker compose up -d`.
 3. Install dependencies: `pnpm install`.
 4. Generate Prisma Client: `pnpm db:generate`.
