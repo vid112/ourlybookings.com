@@ -59,6 +59,7 @@ export function AdvertiserPortal({ dashboard = false }: { dashboard?: boolean })
   const [ads, setAds] = useState<Ad[]>([]);
   const [editing, setEditing] = useState<Ad | null>(null);
   const [message, setMessage] = useState("");
+  const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState(false);
 
   const refreshAds = async () => setAds(await api<Ad[]>("/advertiser/ads"));
@@ -71,10 +72,14 @@ export function AdvertiserPortal({ dashboard = false }: { dashboard?: boolean })
       setUser(session?.user ?? null);
       if (session) await refreshAds().catch(() => setAds([]));
       setReady(true);
+    }).catch((error) => {
+      setLoadError(error instanceof Error ? error.message : "API is unavailable");
+      setReady(true);
     });
   }, []);
 
   if (!ready) return <Panel>Loading advertiser account…</Panel>;
+  if (loadError) return <Panel><h2 className="text-2xl font-bold">Advertiser service unavailable</h2><p className="mt-3 leading-7 text-muted">Backend API se connection nahi ho pa raha: {loadError}</p><button type="button" onClick={() => window.location.reload()} className="brand-gradient mt-6 rounded-xl px-6 py-3 font-bold">Retry</button></Panel>;
   if (!user) return <AuthPanel mode={authMode} setMode={setAuthMode} onAuthenticated={(next) => { setUser(next); void refreshAds(); }} />;
 
   if (dashboard && !editing) {
