@@ -45,6 +45,9 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
   });
   const payload = (await response.json().catch(() => null)) as (T & { message?: string | string[] }) | null;
   if (!response.ok) {
+    if (response.status === 429) {
+      throw new Error("Bahut zyada attempts ho gaye. Kripya kuch minutes wait karke dobara try karein.");
+    }
     const message = Array.isArray(payload?.message) ? payload.message.join(", ") : payload?.message;
     throw new Error(message || `Request failed (${response.status})`);
   }
