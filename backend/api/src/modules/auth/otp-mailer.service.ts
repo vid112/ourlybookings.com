@@ -7,11 +7,11 @@ export class OtpMailerService {
   constructor(private readonly config: ConfigService) {}
 
   async sendCode(email: string, code: string, purpose: "REGISTRATION" | "PASSWORD_RESET") {
-    const host = this.config.get<string>("SMTP_HOST");
-    const user = this.config.get<string>("SMTP_USER");
-    const pass = this.config.get<string>("SMTP_PASSWORD");
+    const host = this.config.get<string>("SMTP_HOST")?.trim();
+    const user = this.config.get<string>("SMTP_USER")?.trim();
+    const pass = this.config.get<string>("SMTP_PASSWORD")?.replace(/\s+/g, "");
     const port = this.config.get<number>("SMTP_PORT") ?? 465;
-    const from = this.config.get<string>("SMTP_FROM") ?? user;
+    const from = this.config.get<string>("SMTP_FROM")?.trim() ?? user;
     if (!host || !user || !pass || !from) {
       throw new ServiceUnavailableException("Email OTP service is not configured");
     }
