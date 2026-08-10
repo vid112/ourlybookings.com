@@ -180,15 +180,64 @@ async function uploadImage(adId: string, file: File, altText: string) {
 }
 
 function AuthPanel({ mode, setMode, onAuthenticated }: { mode: "login" | "register"; setMode: (mode: "login" | "register") => void; onAuthenticated: (user: User) => void }) {
-  const [message, setMessage] = useState(""); const [busy, setBusy] = useState(false);
-  return <Panel><h2 className="text-2xl font-bold">{mode === "login" ? "Advertiser login" : "Create advertiser account"}</h2>
-    <p className="mt-2 text-muted">Login ke baad aap ads aur photos manage kar sakte hain.</p>
-    <form className="mt-6 grid gap-4" onSubmit={async (event) => { event.preventDefault(); setBusy(true); setMessage(""); const form = new FormData(event.currentTarget); try { const result = await api<{ user: User }>(`/auth/${mode}`, { method: "POST", body: JSON.stringify({ displayName: form.get("displayName"), email: form.get("email"), password: form.get("password") }) }); onAuthenticated(result.user); } catch (error) { setMessage(error instanceof Error ? error.message : "Authentication failed"); } finally { setBusy(false); } }}>
-      {mode === "register" ? <Input name="displayName" label="Display name" minLength={2} required /> : null}
-      <Input name="email" label="Email" type="email" required /><Input name="password" label="Password" type="password" minLength={10} required />
-      <button disabled={busy} className="brand-gradient min-h-12 rounded-xl px-5 font-bold disabled:opacity-60">{busy ? "Please wait…" : mode === "login" ? "Login" : "Create account"}</button>
-    </form>{message ? <Notice>{message}</Notice> : null}
-    <button className="mt-5 text-sm font-bold text-brand" onClick={() => setMode(mode === "login" ? "register" : "login")}>{mode === "login" ? "New advertiser? Create account" : "Already registered? Login"}</button>
+  const [view, setView] = useState<"login" | "register" | "verify" | "forgot" | "reset">(mode);
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  useEffect(() => {
+    if (!countdown) return;
+    const timer = window.setInterval(() => setCountdown((value) => Math.max(0, value - 1)), 1000);
+    return () => window.clearInterval(timer);
+  }, [countdown]);
+
+  const switchView = (next: typeof view) => { setView(next); setMessage(""); };
+  const title = view === "login" ? "Advertiser login" : view === "register" ? "Create advertiser account" : view === "verify" ? "Verify your email" : view === "forgot" ? "Forgot password" : "Reset password";
+
+  return <Panel>
+    <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">Secure advertiser account</p>
+    <h2 className="mt-2 text-2xl font-bold">{title}</h2>
+    <p className="mt-2 text-muted">{view === "verify" ? `6-digit OTP ${email} par bheja gaya hai.` : view === "reset" ? `Password reset OTP ${email} par bheja gaya hai.` : "Verified account se ads aur photos manage karein."}</p>
+
+    {view === "login" ? <form className="mt-6 grid gap-4" onSubmit={async (event) => { event.preventDefault(); setBusy(true); setMessage(""); const form = new FormData(event.currentTarget); const loginEmail = String(form.get("email")); setEmail(loginEmail); try { const result = await api<{ user: User }>("/auth/login", { method: "POST", body: JSON.stringify({ email: loginEmail, password: form.get("password") }) }); onAuthenticated(result.user); } catch (error) { const text = error instanceof Error ? error.message : "Login failed"; setMessage(text); if (text.toLowerCase().includes("verification")) { setCountdown(0); setView("verify"); } } finally { setBusy(false); } }}>
+      <Input name="email" label="Email" type="email" required />
+      <Input name="password" label="Password" type="password" minLength={10} required />
+      <button disabled={busy} className="brand-gradient min-h-12 rounded-xl px-5 font-bold disabled:opacity-60">{busy ? "Please wait…" : "Login"}</button>
+      <button type="button" onClick={() => switchView("forgot")} className="text-sm font-bold text-brand">Forgot password?</button>
+    </form> : null}
+
+    {view === "register" ? <form className="mt-6 grid gap-4 sm:grid-cols-2" onSubmit={async (event) => { event.preventDefault(); setBusy(true); setMessage(""); const form = new FormData(event.currentTarget); const password = String(form.get("password")); const confirm = String(form.get("confirmPassword")); const registerEmail = String(form.get("email")); if (password !== confirm) { setMessage("Passwords do not match"); setBusy(false); return; } try { await api("/auth/register", { method: "POST", body: JSON.stringify({ firstName: form.get("firstName"), lastName: form.get("lastName"), email: registerEmail, mobile: form.get("mobile") || undefined, password, termsAccepted: form.get("termsAccepted") === "true" }) }); setEmail(registerEmail); setCountdown(60); setView("verify"); setMessage("OTP sent. Please check inbox and spam folder."); } catch (error) { setMessage(error instanceof Error ? error.message : "Registration failed"); } finally { setBusy(false); } }}>
+      <Input name="firstName" label="First name" minLength={2} required />
+      <Input name="lastName" label="Last name" minLength={1} required />
+      <Input name="email" label="Email" type="email" required />
+      <Input name="mobile" label="Mobile number (optional)" type="tel" />
+      <Input name="password" label="Password" type="password" minLength={10} required />
+      <Input name="confirmPassword" label="Confirm password" type="password" minLength={10} required />
+      <label className="flex gap-3 text-sm leading-6 text-muted sm:col-span-2"><input type="checkbox" name="termsAccepted" value="true" required className="mt-1 size-4 accent-brand" /><span>I am 18+ and agree to the Terms, Privacy Policy and lawful-content rules.</span></label>
+      <button disabled={busy} className="brand-gradient min-h-12 rounded-xl px-5 font-bold disabled:opacity-60 sm:col-span-2">{busy ? "Sending OTP…" : "Create account & send OTP"}</button>
+    </form> : null}
+
+    {view === "verify" ? <form className="mt-6 grid gap-4" onSubmit={async (event) => { event.preventDefault(); setBusy(true); setMessage(""); const form = new FormData(event.currentTarget); try { const result = await api<{ user: User }>("/auth/verify-otp", { method: "POST", body: JSON.stringify({ email, code: form.get("code"), purpose: "REGISTRATION" }) }); onAuthenticated(result.user); } catch (error) { setMessage(error instanceof Error ? error.message : "OTP verification failed"); } finally { setBusy(false); } }}>
+      <Input name="code" label="6-digit OTP" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} autoComplete="one-time-code" required />
+      <button disabled={busy} className="brand-gradient min-h-12 rounded-xl px-5 font-bold disabled:opacity-60">{busy ? "Verifying…" : "Verify & continue"}</button>
+      <button type="button" disabled={countdown > 0 || busy} onClick={async () => { setBusy(true); setMessage(""); try { await api("/auth/resend-otp", { method: "POST", body: JSON.stringify({ email, purpose: "REGISTRATION" }) }); setCountdown(60); setMessage("A new OTP has been sent."); } catch (error) { setMessage(error instanceof Error ? error.message : "Could not resend OTP"); } finally { setBusy(false); } }} className="text-sm font-bold text-brand disabled:text-muted">{countdown ? `Resend OTP in ${countdown}s` : "Resend OTP"}</button>
+    </form> : null}
+
+    {view === "forgot" ? <form className="mt-6 grid gap-4" onSubmit={async (event) => { event.preventDefault(); setBusy(true); setMessage(""); const form = new FormData(event.currentTarget); const resetEmail = String(form.get("email")); try { await api("/auth/forgot-password", { method: "POST", body: JSON.stringify({ email: resetEmail }) }); setEmail(resetEmail); setCountdown(60); setView("reset"); setMessage("If the account exists, a reset OTP has been sent."); } catch (error) { setMessage(error instanceof Error ? error.message : "Request failed"); } finally { setBusy(false); } }}>
+      <Input name="email" label="Registered email" type="email" required />
+      <button disabled={busy} className="brand-gradient min-h-12 rounded-xl px-5 font-bold disabled:opacity-60">{busy ? "Sending…" : "Send password reset OTP"}</button>
+    </form> : null}
+
+    {view === "reset" ? <form className="mt-6 grid gap-4" onSubmit={async (event) => { event.preventDefault(); setBusy(true); setMessage(""); const form = new FormData(event.currentTarget); const password = String(form.get("password")); if (password !== String(form.get("confirmPassword"))) { setMessage("Passwords do not match"); setBusy(false); return; } try { await api("/auth/reset-password", { method: "POST", body: JSON.stringify({ email, code: form.get("code"), purpose: "PASSWORD_RESET", password }) }); setView("login"); setMessage("Password reset successful. You can now login."); } catch (error) { setMessage(error instanceof Error ? error.message : "Password reset failed"); } finally { setBusy(false); } }}>
+      <Input name="code" label="6-digit reset OTP" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} autoComplete="one-time-code" required />
+      <Input name="password" label="New password" type="password" minLength={10} required />
+      <Input name="confirmPassword" label="Confirm new password" type="password" minLength={10} required />
+      <button disabled={busy} className="brand-gradient min-h-12 rounded-xl px-5 font-bold disabled:opacity-60">{busy ? "Resetting…" : "Reset password"}</button>
+      <button type="button" disabled={countdown > 0 || busy} onClick={async () => { setBusy(true); setMessage(""); try { await api("/auth/resend-otp", { method: "POST", body: JSON.stringify({ email, purpose: "PASSWORD_RESET" }) }); setCountdown(60); setMessage("A new password reset OTP has been sent."); } catch (error) { setMessage(error instanceof Error ? error.message : "Could not resend OTP"); } finally { setBusy(false); } }} className="text-sm font-bold text-brand disabled:text-muted">{countdown ? `Resend OTP in ${countdown}s` : "Resend reset OTP"}</button>
+    </form> : null}
+
+    {message ? <Notice>{message}</Notice> : null}
+    {view === "login" || view === "register" ? <button className="mt-5 text-sm font-bold text-brand" onClick={() => { const next = view === "login" ? "register" : "login"; setMode(next); switchView(next); }}>{view === "login" ? "New advertiser? Create account" : "Already registered? Login"}</button> : <button className="mt-5 text-sm font-bold text-brand" onClick={() => switchView("login")}>Back to login</button>}
   </Panel>;
 }
 
