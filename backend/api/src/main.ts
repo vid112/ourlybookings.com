@@ -2,13 +2,15 @@ import "reflect-metadata";
 import { ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
+import type { NestExpressApplication } from "@nestjs/platform-express";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
+import path from "node:path";
 import { AppModule } from "./app.module";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { cors: false });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { cors: false });
   const config = app.get(ConfigService);
   const isProduction = config.get("NODE_ENV") === "production";
 
@@ -18,7 +20,15 @@ async function bootstrap() {
     credentials: true,
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
   });
-  app.use(helmet({ contentSecurityPolicy: isProduction ? undefined : false }));
+  app.use(
+    helmet({
+      contentSecurityPolicy: isProduction ? undefined : false,
+      crossOriginResourcePolicy: { policy: "cross-origin" },
+    }),
+  );
+  if (!isProduction) {
+    app.useStaticAssets(path.resolve(process.cwd(), "uploads"), { prefix: "/uploads/", maxAge: "1h" });
+  }
   app.use(cookieParser(config.getOrThrow<string>("COOKIE_SECRET")));
   app.useGlobalPipes(
     new ValidationPipe({

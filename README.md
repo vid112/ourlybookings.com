@@ -12,13 +12,17 @@ All included profiles and images are fictional demo content. Replace them only w
 
 ## Local setup
 
-1. Copy `backend/api/.env.example` to `backend/api/.env` and `frontend/.env.example` to `frontend/.env.local`; replace every secret and configure Cloudinary for advertiser image uploads.
+1. Copy `backend/api/.env.example` to `backend/api/.env` and `frontend/.env.example` to `frontend/.env.local`; replace every secret. Cloudinary can remain blank locally because development uploads are stored in `backend/api/uploads`; configure Cloudinary before production deployment.
 2. Start PostgreSQL and Redis: `docker compose up -d`.
 3. Install dependencies: `pnpm install`.
 4. Generate Prisma Client: `pnpm db:generate`.
 5. Apply migrations: `pnpm db:migrate`.
 6. Seed safe demo content: `pnpm db:seed`.
 7. Run all applications: `pnpm dev`.
+
+### Image uploads
+
+Development uses authenticated local uploads when all three Cloudinary values are blank. Local files are ignored by Git and served from the API's `/uploads` route. When valid Cloudinary credentials are present, the same form automatically switches to signed Cloudinary uploads. Production never enables the local fallback and requires Cloudinary.
 
 ### Gmail OTP setup
 

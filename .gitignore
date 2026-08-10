@@ -11,6 +11,7 @@ coverage/
 .DS_Store
 Thumbs.db
 backend/api/prisma/dev.db
+backend/api/uploads/
 backend/api/src/generated/prisma/
 .codex-docx-render/
 .codex-docx-assets-v1/
