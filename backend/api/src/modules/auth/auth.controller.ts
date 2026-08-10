@@ -8,6 +8,7 @@ import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
 import { AuthGuard } from "./auth.guard";
 import type { AuthenticatedRequest } from "./auth.types";
+import { RequestPasswordResetDto, ResendOtpDto, ResetPasswordDto, VerifyOtpDto } from "./dto/otp.dto";
 
 @ApiTags("authentication")
 @Controller("auth")
@@ -21,12 +22,39 @@ export class AuthController {
   @Throttle({ default: { limit: 3, ttl: minutes(10) } })
   async register(
     @Body() dto: RegisterDto,
+  ) {
+    return this.auth.register(dto.firstName, dto.lastName, dto.email, dto.password, dto.mobile, dto.termsAccepted);
+  }
+
+  @Post("verify-otp")
+  @Throttle({ default: { limit: 5, ttl: minutes(10) } })
+  async verifyOtp(
+    @Body() dto: VerifyOtpDto,
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const session = await this.auth.register(dto.displayName, dto.email, dto.password, request.get("user-agent"));
+    if (dto.purpose !== "REGISTRATION") return { verified: true };
+    const session = await this.auth.verifyRegistration(dto.email, dto.code, request.get("user-agent"));
     this.writeCookies(response, session.accessToken, session.refreshToken);
     return { user: session.user };
+  }
+
+  @Post("resend-otp")
+  @Throttle({ default: { limit: 3, ttl: minutes(10) } })
+  resendOtp(@Body() dto: ResendOtpDto) {
+    return this.auth.resendOtp(dto.email, dto.purpose);
+  }
+
+  @Post("forgot-password")
+  @Throttle({ default: { limit: 3, ttl: minutes(10) } })
+  forgotPassword(@Body() dto: RequestPasswordResetDto) {
+    return this.auth.requestPasswordReset(dto.email);
+  }
+
+  @Post("reset-password")
+  @Throttle({ default: { limit: 5, ttl: minutes(10) } })
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.auth.resetPassword(dto.email, dto.code, dto.password);
   }
 
   @Get("me")

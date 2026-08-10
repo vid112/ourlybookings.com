@@ -20,6 +20,20 @@ All included profiles and images are fictional demo content. Replace them only w
 6. Seed safe demo content: `pnpm db:seed`.
 7. Run all applications: `pnpm dev`.
 
+### Gmail OTP setup
+
+Advertiser registration and password reset use email OTP. Enable 2-Step Verification on the sender Google account, create a dedicated Google App Password, and set these values in `backend/api/.env`:
+
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_USER=ourlybookings@gmail.com
+SMTP_PASSWORD=your-16-character-google-app-password
+SMTP_FROM=ourlybookings@gmail.com
+```
+
+Never commit the App Password or use the normal Gmail account password.
+
 Public site: <http://localhost:3000>
 Admin: <http://localhost:3001>
 API and Swagger: <http://localhost:4000/api/docs>

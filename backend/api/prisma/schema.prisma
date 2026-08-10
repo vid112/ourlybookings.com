@@ -37,6 +37,17 @@ enum PaymentStatus {
   FAILED
 }
 
+enum AccountStatus {
+  UNVERIFIED
+  ACTIVE
+  BLOCKED
+}
+
+enum VerificationPurpose {
+  REGISTRATION
+  PASSWORD_RESET
+}
+
 enum MediaResourceType {
   IMAGE
   VIDEO
@@ -91,6 +102,11 @@ model User {
   email             String               @unique
   passwordHash      String
   displayName       String
+  mobile            String?
+  emailVerifiedAt   DateTime?
+  mobileVerifiedAt  DateTime?
+  termsAcceptedAt   DateTime?
+  accountStatus     AccountStatus        @default(ACTIVE)
   isActive          Boolean              @default(true)
   totpEnabled       Boolean              @default(false)
   totpSecretCipher  String?
@@ -105,6 +121,22 @@ model User {
   verificationWork  VerificationRecord[] @relation("VerificationReviewer")
   consentWork       ConsentRecord[]      @relation("ConsentReviewer")
   profiles          Profile[]            @relation("ProfileOwner")
+  verificationCodes VerificationCode[]
+}
+
+model VerificationCode {
+  id         String              @id @default(cuid())
+  userId     String
+  purpose    VerificationPurpose
+  codeHash   String
+  expiresAt  DateTime
+  attempts   Int                 @default(0)
+  consumedAt DateTime?
+  createdAt  DateTime            @default(now())
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose, createdAt])
+  @@index([expiresAt])
 }
 
 model Role {
