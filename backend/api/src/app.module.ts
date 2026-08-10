@@ -13,7 +13,11 @@ import { AdvertiserModule } from "./modules/advertiser/advertiser.module";
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, validate: validateEnvironment }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: [".env", "../../.env"],
+      validate: validateEnvironment,
+    }),
     ThrottlerModule.forRoot({ throttlers: [{ ttl: minutes(1), limit: 100 }] }),
     PrismaModule,
     AuthModule,

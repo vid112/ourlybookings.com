@@ -20,6 +20,8 @@ All included profiles and images are fictional demo content. Replace them only w
 6. Seed safe demo content: `pnpm db:seed`.
 7. Run all applications: `pnpm dev`.
 
+The API reads `backend/api/.env` first and falls back to the repository-root `.env`, so either local setup works without duplicating secrets.
+
 ### Image uploads
 
 Development uses authenticated local uploads when all three Cloudinary values are blank. Local files are ignored by Git and served from the API's `/uploads` route. When valid Cloudinary credentials are present, the same form automatically switches to signed Cloudinary uploads. Production never enables the local fallback and requires Cloudinary.
