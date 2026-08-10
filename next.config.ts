@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "res.cloudinary.com" },
       { protocol: "https", hostname: "cdn.schloka.com" },
+      { protocol: "http", hostname: "localhost", port: "4000", pathname: "/uploads/**" },
     ],
   },
   turbopack: { root: path.resolve(process.cwd(), "..") },

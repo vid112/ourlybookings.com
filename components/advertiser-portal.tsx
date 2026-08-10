@@ -162,9 +162,20 @@ export function AdvertiserPortal({ dashboard = false }: { dashboard?: boolean })
 }
 
 async function uploadImage(adId: string, file: File, altText: string) {
-  const signed = await api<{ uploadUrl: string; apiKey: string; signature: string; timestamp: number; params: Record<string, string | number> }>("/admin/media/signature", {
+  const signed = await api<
+    | { provider: "local" }
+    | { provider: "cloudinary"; uploadUrl: string; apiKey: string; signature: string; timestamp: number; params: Record<string, string | number> }
+  >("/admin/media/signature", {
     method: "POST", body: JSON.stringify({ resourceType: "image", folder: `profiles/${adId}/images` }),
   });
+  if (signed.provider === "local") {
+    const localData = new FormData();
+    localData.set("file", file);
+    localData.set("altText", `${altText} advertisement image`);
+    const media = await api<{ id: string }>("/admin/media/local-upload", { method: "POST", body: localData });
+    await api(`/advertiser/ads/${adId}/media`, { method: "POST", body: JSON.stringify({ mediaId: media.id }) });
+    return;
+  }
   const data = new FormData(); data.set("file", file); data.set("api_key", signed.apiKey); data.set("signature", signed.signature); data.set("timestamp", String(signed.timestamp));
   Object.entries(signed.params).forEach(([key, value]) => data.set(key, String(value)));
   const uploadedResponse = await fetch(signed.uploadUrl, { method: "POST", body: data });
