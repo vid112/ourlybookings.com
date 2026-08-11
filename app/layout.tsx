@@ -20,7 +20,7 @@ const manrope = Manrope({
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
   title: {
-    default: "Ourly Bookings | Independent Profiles Across India",
+    default: "Ourly Bookings | Independent Profiles Worldwide",
     template: "%s | Ourly Bookings",
   },
   description: siteConfig.description,
@@ -28,9 +28,9 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
   openGraph: {
     type: "website",
-    locale: "en_IN",
+    locale: "en_US",
     siteName: siteConfig.name,
-    title: "Ourly Bookings | Independent Profiles Across India",
+    title: "Ourly Bookings | Independent Profiles Worldwide",
     description: siteConfig.description,
     images: [{ url: "/images/hero-lounge.png", width: 1792, height: 1024 }],
   },
@@ -45,7 +45,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html
-      lang="en-IN"
+      lang="en"
       className={`${sora.variable} ${manrope.variable}`}
       data-scroll-behavior="smooth"
     >

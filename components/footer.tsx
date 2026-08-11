@@ -1,4 +1,4 @@
-import { BadgeIndianRupee, ShieldCheck } from "lucide-react";
+import { Globe2, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { Logo } from "@/components/logo";
 
@@ -47,18 +47,18 @@ export function Footer() {
       <section className="site-container -translate-y-8 rounded-[24px] border border-brand/55 bg-surface px-5 py-7 shadow-2xl shadow-black/50 sm:px-8">
         <div className="grid items-center gap-6 lg:grid-cols-[auto_1fr_auto_auto]">
           <div className="grid size-14 place-items-center rounded-2xl border border-brand/45 text-brand">
-            <BadgeIndianRupee />
+            <Globe2 />
           </div>
           <div>
             <h2 className="font-display text-2xl font-bold tracking-[-0.04em]">
               Ready to reach the right audience?
             </h2>
             <p className="mt-2 text-muted">
-              Post a lawful adult advertisement and connect directly with people across India.
+              Post a lawful adult advertisement and connect directly with people worldwide.
             </p>
           </div>
           <div className="rounded-xl border border-white/15 bg-ink px-5 py-3 text-sm text-muted">
-            🇮🇳 India only
+            Global country and city coverage
           </div>
           <Link
             href="/post-ad"
@@ -100,7 +100,7 @@ export function Footer() {
         <div className="site-container flex flex-col gap-3 py-6 text-xs leading-5 text-muted sm:flex-row sm:items-center sm:justify-between">
           <p>
             © {new Date().getFullYear()} Ourly Bookings. Source-authorized and demo records are
-            clearly labelled. India only.
+            clearly labelled. Adults only.
           </p>
           <p>Adults must follow applicable law and verify information independently.</p>
         </div>

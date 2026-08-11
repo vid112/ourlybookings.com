@@ -10,6 +10,7 @@ import {
   MessageCircleMore,
   Plane,
   ShieldCheck,
+  ImageIcon,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -17,7 +18,7 @@ import { HeroSearch } from "@/components/hero-search";
 import { ProfileCard } from "@/components/profile-card";
 import { SectionHeading } from "@/components/section-heading";
 import { indiaStates } from "@/data/india";
-import { getDirectoryProfiles } from "@/lib/directory";
+import { getDirectoryOptions, getDirectoryProfiles } from "@/lib/directory";
 import { siteConfig } from "@/lib/site";
 
 const featuredStates = ["maharashtra", "karnataka", "delhi", "tamil-nadu", "telangana", "gujarat"];
@@ -70,7 +71,12 @@ const faqs = [
 ] as const;
 
 export default async function HomePage() {
-  const featuredProfiles = (await getDirectoryProfiles()).slice(0, 3);
+  const [directoryProfiles, directoryOptions] = await Promise.all([
+    getDirectoryProfiles(),
+    getDirectoryOptions(),
+  ]);
+  const featuredProfiles = directoryProfiles.slice(0, 3);
+  const categoryCards = directoryOptions?.categories ?? [];
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "WebSite",
@@ -98,7 +104,7 @@ export default async function HomePage() {
         <div className="site-container flex min-h-[760px] items-center py-16">
           <div className="w-full max-w-3xl">
             <h1 className="text-balance max-w-2xl font-display text-5xl font-bold leading-[1.02] tracking-[-0.06em] text-paper sm:text-6xl lg:text-7xl">
-              Discover verified independent profiles across India
+              Discover verified independent profiles worldwide
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-8 text-muted">
               Privacy-first discovery for consenting adults, with city-based browsing, consent
@@ -119,7 +125,10 @@ export default async function HomePage() {
               </Link>
             </div>
             <div className="mt-10 max-w-3xl">
-              <HeroSearch states={indiaStates} />
+              <HeroSearch
+                countries={directoryOptions?.countries ?? []}
+                categories={directoryOptions?.categories ?? []}
+              />
             </div>
             <p className="mt-5 flex max-w-xl items-start gap-2 text-xs leading-5 text-muted">
               <ShieldCheck className="mt-0.5 shrink-0 text-gold" size={16} />
@@ -141,6 +150,55 @@ export default async function HomePage() {
               </div>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section id="categories" className="section-space scroll-mt-24">
+        <div className="site-container">
+          <SectionHeading
+            title="Find listings by category"
+            description="Choose a service category, then browse every country and city where approved listings are available. Category images can be uploaded from the admin panel."
+          />
+          <div className="mt-12 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {categoryCards.map((category) => (
+              <Link
+                key={category.id}
+                href={`/categories/${category.slug}`}
+                className="group overflow-hidden rounded-[24px] border border-white/12 bg-surface transition hover:-translate-y-1 hover:border-brand/50"
+              >
+                <div
+                  className="relative flex aspect-[16/10] items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_30%_20%,#b62455,#161d2d_65%)]"
+                  style={
+                    category.imageUrl
+                      ? {
+                          backgroundImage: `linear-gradient(to top, rgba(5,5,5,.35), rgba(5,5,5,.05)), url(${category.imageUrl})`,
+                          backgroundSize: "cover",
+                          backgroundPosition: "center",
+                        }
+                      : undefined
+                  }
+                >
+                  {!category.imageUrl ? (
+                    <ImageIcon
+                      size={54}
+                      className="text-white/55"
+                      aria-label="Category image pending upload"
+                    />
+                  ) : null}
+                  <span className="absolute left-4 top-4 rounded-full bg-black/60 px-3 py-1.5 text-xs font-bold">
+                    18+ listings
+                  </span>
+                </div>
+                <div className="p-6">
+                  <h3 className="font-display text-2xl font-bold">{category.name}</h3>
+                  <p className="mt-3 line-clamp-3 leading-7 text-muted">{category.description}</p>
+                  <span className="mt-5 inline-flex font-bold text-brand">
+                    Explore countries and cities →
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -167,8 +225,8 @@ export default async function HomePage() {
         <div className="site-container">
           <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
             <SectionHeading
-              title="Browse by state and city"
-              description="Every Indian state and union territory has a crawlable landing page, with city pages published from the same verified content model."
+              title="India location highlights"
+              description="Browse popular Indian states and cities here, or use global search for every configured country and region."
             />
             <Link href="/india" className="font-bold text-brand">
               All India locations →

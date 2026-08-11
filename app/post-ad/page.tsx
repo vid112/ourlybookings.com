@@ -24,8 +24,8 @@ export default function PostAdPage() {
       <div className="section-space">
         <div className="site-container">
           <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Post Your Ad" }]} />
-          <div className="grid gap-14 lg:grid-cols-[0.75fr_1.25fr]">
-            <div>
+          <div>
+            <div className="max-w-4xl">
               <h1 className="text-balance font-display text-5xl font-bold tracking-[-0.055em]">
                 Post a lawful adult advertisement
               </h1>
@@ -33,7 +33,7 @@ export default function PostAdPage() {
                 Every submission is reviewed before publication. No listing is published until adult
                 verification, consent and media rights are recorded.
               </p>
-              <ul className="mt-9 space-y-5 text-sm leading-6 text-muted">
+              <ul className="mt-9 flex flex-wrap gap-x-8 gap-y-4 text-sm leading-6 text-muted">
                 {requirements.map(({ icon: Icon, label }) => (
                   <li key={label} className="flex items-center gap-3">
                     <Icon className="text-brand" size={20} />
@@ -42,7 +42,9 @@ export default function PostAdPage() {
                 ))}
               </ul>
             </div>
-            <AdvertiserPortal />
+            <div className="mt-10">
+              <AdvertiserPortal />
+            </div>
           </div>
         </div>
       </div>
