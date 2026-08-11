@@ -147,7 +147,13 @@ export async function getDirectoryProfiles(filters?: {
   if (filters?.state) search.set("state", filters.state);
   if (filters?.city) search.set("city", filters.city);
   if (filters?.category) search.set("category", filters.category);
-  const profiles = await publicApi<ApiProfile[]>(`/public/profiles?${search.toString()}`);
+  // Moderated listings must become visible as soon as an administrator approves
+  // them. Keeping this request out of Next's data cache also makes removals and
+  // rejection changes take effect immediately on every directory page.
+  const profiles = await publicApi<ApiProfile[]>(
+    `/public/profiles?${search.toString()}`,
+    true,
+  );
   if (profiles)
     return profiles.map(fromApi).filter((profile): profile is DirectoryProfile => Boolean(profile));
   return demoProfiles

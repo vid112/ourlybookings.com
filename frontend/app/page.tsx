@@ -341,4 +341,6 @@ export default async function HomePage() {
   );
 }
 
-export const revalidate = 300;
+// Featured profiles are moderation-driven data and must not leave a newly
+// approved or removed listing hidden behind the full-route cache.
+export const dynamic = "force-dynamic";

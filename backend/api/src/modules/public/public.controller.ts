@@ -1,4 +1,13 @@
-import { BadRequestException, Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  Post,
+  Query,
+} from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { Throttle, minutes } from "@nestjs/throttler";
 import { PrismaService } from "../../prisma/prisma.service";
@@ -102,10 +111,12 @@ export class PublicController {
 
   @Get("profiles/:slug")
   async profile(@Param("slug") slug: string) {
-    return this.prisma.profile.findFirstOrThrow({
+    const profile = await this.prisma.profile.findFirst({
       where: { slug, status: "PUBLISHED", moderationStatus: "APPROVED", deletedAt: null },
       select: this.publicProfileSelect(true),
     });
+    if (!profile) throw new NotFoundException("Profile not found");
+    return profile;
   }
 
   @Get("locations")
