@@ -3,6 +3,7 @@
 import { ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
 type City = {
@@ -22,6 +23,7 @@ export function AdvancedSearchModal({ open, onClose }: { open: boolean; onClose:
   const [countrySlug, setCountrySlug] = useState("");
   const [stateSlug, setStateSlug] = useState("");
   const [citySlug, setCitySlug] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -58,31 +60,39 @@ export function AdvancedSearchModal({ open, onClose }: { open: boolean; onClose:
     router.push(`/profiles?${query.toString()}`);
   };
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[100] grid place-items-start overflow-y-auto bg-black/75 p-0 backdrop-blur-sm sm:p-6"
+      className="fixed inset-0 z-[9999] grid place-items-center overflow-y-auto bg-[#160b10]/80 p-3 backdrop-blur-md sm:p-6"
       onMouseDown={(event) => event.target === event.currentTarget && onClose()}
     >
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="search-title"
-        className="mx-auto min-h-screen w-full max-w-5xl bg-white text-[#181818] shadow-2xl sm:min-h-0 sm:rounded-[24px]"
+        className="mx-auto flex max-h-[calc(100dvh-1.5rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[24px] border border-white/20 bg-[#fff8f4] text-[#25191a] shadow-[0_30px_90px_rgba(0,0,0,0.55)] sm:max-h-[calc(100dvh-3rem)]"
       >
-        <div className="flex items-center justify-between border-b border-stone-200 px-5 py-4">
-          <h2 id="search-title" className="flex items-center gap-3 text-2xl font-bold">
-            <Search /> Search
-          </h2>
+        <div className="flex items-center justify-between bg-gradient-to-r from-[#681b2a] via-[#a23231] to-[#d26042] px-5 py-4 text-white">
+          <div>
+            <h2 id="search-title" className="flex items-center gap-2.5 text-xl font-bold sm:text-2xl">
+              <span className="grid size-9 place-items-center rounded-full bg-white/15">
+                <Search size={19} />
+              </span>
+              Find your perfect listing
+            </h2>
+            <p className="mt-1 hidden text-sm text-white/75 sm:block">
+              Search by service, location and preference
+            </p>
+          </div>
           <button
             type="button"
             onClick={onClose}
-            className="grid size-10 place-items-center rounded-full hover:bg-stone-100"
+            className="grid size-10 place-items-center rounded-full bg-white/10 transition hover:bg-white/20"
             aria-label="Close search"
           >
             <X />
           </button>
         </div>
-        <form onSubmit={submit} className="p-5 sm:p-7">
+        <form onSubmit={submit} className="overflow-y-auto p-4 sm:p-5">
           <div className="grid gap-3 md:grid-cols-2">
             <select name="category" className={searchField}>
               <option value="">All Categories</option>
@@ -152,42 +162,55 @@ export function AdvancedSearchModal({ open, onClose }: { open: boolean; onClose:
               ))}
             </select>
           </div>
-          <h3 className="mt-8 flex items-center gap-3 border-b border-stone-200 pb-4 text-xl font-bold text-stone-600">
-            <SlidersHorizontal size={20} /> Filters
-          </h3>
-          <div className="divide-y divide-stone-200">
-            <FilterSelect
-              label="Gender"
-              name="gender"
-              options={["Woman", "Man", "Trans Woman", "Trans Man", "Non-binary"]}
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((value) => !value)}
+            aria-expanded={filtersOpen}
+            className="mt-4 flex w-full items-center justify-between rounded-xl border border-[#c76a58]/25 bg-[#f6e8e1] px-4 py-3 font-bold text-[#7b2930] transition hover:bg-[#f1ddd3]"
+          >
+            <span className="flex items-center gap-2">
+              <SlidersHorizontal size={18} /> More filters
+            </span>
+            <ChevronDown
+              size={19}
+              className={`transition-transform ${filtersOpen ? "rotate-180" : ""}`}
             />
-            <FilterInput label="Ethnicity" name="ethnicity" placeholder="Any ethnicity" />
-            <FilterInput label="Nationality" name="nationality" placeholder="Any nationality" />
-            <FilterInput label="Bust" name="bust" placeholder="Any" />
-            <FilterInput label="Hair" name="hair" placeholder="Any hair color" />
-            <FilterSelect
-              label="Body Type"
-              name="bodyType"
-              options={["Slim", "Athletic", "Average", "Curvy", "Plus Size"]}
-            />
-            <FilterSelect
-              label="Services"
-              name="service"
-              options={options.services.map((item) => item.name)}
-              values={options.services.map((item) => item.slug)}
-            />
-            <FilterSelect
-              label="Attention To"
-              name="attentionTo"
-              options={["Men", "Women", "Couples", "Everyone"]}
-            />
-            <FilterSelect
-              label="Place Of Service"
-              name="placeOfService"
-              options={["Incalls", "Outcalls", "Incalls and Outcalls", "Online"]}
-            />
-          </div>
-          <div className="mt-7 grid gap-3 border-t border-stone-200 pt-5 sm:grid-cols-[0.8fr_1.2fr]">
+          </button>
+          {filtersOpen ? (
+            <div className="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+              <FilterSelect
+                label="Gender"
+                name="gender"
+                options={["Woman", "Man", "Trans Woman", "Trans Man", "Non-binary"]}
+              />
+              <FilterInput label="Ethnicity" name="ethnicity" placeholder="Any ethnicity" />
+              <FilterInput label="Nationality" name="nationality" placeholder="Any nationality" />
+              <FilterInput label="Bust" name="bust" placeholder="Any" />
+              <FilterInput label="Hair" name="hair" placeholder="Any hair color" />
+              <FilterSelect
+                label="Body Type"
+                name="bodyType"
+                options={["Slim", "Athletic", "Average", "Curvy", "Plus Size"]}
+              />
+              <FilterSelect
+                label="Services"
+                name="service"
+                options={options.services.map((item) => item.name)}
+                values={options.services.map((item) => item.slug)}
+              />
+              <FilterSelect
+                label="Attention To"
+                name="attentionTo"
+                options={["Men", "Women", "Couples", "Everyone"]}
+              />
+              <FilterSelect
+                label="Place Of Service"
+                name="placeOfService"
+                options={["Incalls", "Outcalls", "Incalls and Outcalls", "Online"]}
+              />
+            </div>
+          ) : null}
+          <div className="mt-4 grid gap-3 border-t border-[#c76a58]/20 pt-4 sm:grid-cols-[0.7fr_1.3fr]">
             <button
               type="reset"
               onClick={() => {
@@ -195,17 +218,18 @@ export function AdvancedSearchModal({ open, onClose }: { open: boolean; onClose:
                 setStateSlug("");
                 setCitySlug("");
               }}
-              className="min-h-14 rounded-xl font-bold text-[#c64130]"
+              className="min-h-11 rounded-xl font-bold text-[#a43635] transition hover:bg-[#f2e2dc]"
             >
-              DELETE ALL
+              Clear all
             </button>
-            <button className="flex min-h-14 items-center justify-center gap-3 rounded-xl bg-[#d53f2c] px-6 text-lg font-bold text-white">
-              <Search /> SEARCH
+            <button className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#8f2630] to-[#d24d35] px-6 font-bold text-white shadow-lg shadow-[#9d2f31]/20 transition hover:brightness-110">
+              <Search size={18} /> Search listings
             </button>
           </div>
         </form>
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -221,10 +245,9 @@ function FilterSelect({
   values?: string[];
 }) {
   return (
-    <label className="grid items-center gap-3 py-4 sm:grid-cols-[220px_1fr]">
-      <span className="flex items-center gap-3 font-semibold">
+    <label className="grid gap-1.5 rounded-xl border border-[#c76a58]/15 bg-white/75 p-3">
+      <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-[#71343a]">
         {label}
-        <ChevronDown className="ml-auto text-[#d53f2c] sm:hidden" />
       </span>
       <select name={name} className={searchField}>
         <option value="">Any</option>
@@ -247,11 +270,11 @@ function FilterInput({
   placeholder: string;
 }) {
   return (
-    <label className="grid items-center gap-3 py-4 sm:grid-cols-[220px_1fr]">
-      <span className="font-semibold">{label}</span>
+    <label className="grid gap-1.5 rounded-xl border border-[#c76a58]/15 bg-white/75 p-3">
+      <span className="text-xs font-bold uppercase tracking-wide text-[#71343a]">{label}</span>
       <input name={name} placeholder={placeholder} className={searchField} />
     </label>
   );
 }
 const searchField =
-  "min-h-12 w-full rounded-lg border border-stone-300 bg-white px-4 text-[#181818] disabled:bg-stone-100 disabled:text-stone-400";
+  "min-h-11 w-full rounded-xl border border-[#d9c3bb] bg-white px-3 text-sm text-[#25191a] outline-none transition focus:border-[#b33a36] focus:ring-2 focus:ring-[#b33a36]/15 disabled:bg-[#eee7e3] disabled:text-stone-400";
