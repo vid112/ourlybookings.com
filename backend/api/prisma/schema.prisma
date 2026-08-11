@@ -105,6 +105,7 @@ model User {
   mobile            String?
   emailVerifiedAt   DateTime?
   mobileVerifiedAt  DateTime?
+  credits           Int                  @default(0)
   termsAcceptedAt   DateTime?
   accountStatus     AccountStatus        @default(ACTIVE)
   isActive          Boolean              @default(true)
@@ -244,7 +245,19 @@ model Profile {
   paymentStatus      PaymentStatus       @default(NOT_REQUIRED)
   ownerId            String?
   age                Int
+  adTitle            String?
+  gender             String?
+  ethnicity          String?
   nationality        String?
+  eyeColor           String?
+  hairColor          String?
+  weightKg           Int?
+  heightCm           Int?
+  bodyType           String?
+  bust               String?
+  attentionTo        String?
+  placeOfService     String?
+  availabilitySlots  String[]            @default([])
   languages          String[]
   shortIntro         String
   fullBio            String
@@ -280,6 +293,9 @@ model Profile {
   @@index([adminPriority, promotionAmount])
   @@index([ownerId, updatedAt])
   @@index([deletedAt])
+  @@index([gender])
+  @@index([ethnicity])
+  @@index([bodyType])
 }
 
 model Category {
@@ -288,6 +304,7 @@ model Category {
   slug        String            @unique
   description String
   icon        String?
+  imageUrl    String?
   sortOrder   Int               @default(0)
   isPublished Boolean           @default(false)
   createdAt   DateTime          @default(now())

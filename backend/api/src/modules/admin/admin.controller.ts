@@ -27,6 +27,7 @@ import {
   UpdateReportDto,
   UpdateSeoDto,
   UpdateSettingDto,
+  UpdateCategoryDto,
   ModerateProfileDto,
   RankProfileDto,
 } from "./dto/admin.dto";
@@ -42,18 +43,21 @@ export class AdminController {
 
   @Get("dashboard")
   async dashboard() {
-    const [profiles, publishedProfiles, leads, reports, events, cities, media] = await Promise.all([
-      this.prisma.profile.count({ where: { deletedAt: null } }),
-      this.prisma.profile.count({ where: { status: "PUBLISHED", deletedAt: null } }),
-      this.prisma.lead.count({ where: { status: "NEW", deletedAt: null } }),
-      this.prisma.contentReport.count({ where: { status: { in: ["OPEN", "TRIAGED"] } } }),
-      this.prisma.analyticsEvent.count({
-        where: { createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
-      }),
-      this.prisma.city.count({ where: { isPublished: true } }),
-      this.prisma.mediaAsset.count({ where: { deletedAt: null } }),
-    ]);
+    const [users, profiles, publishedProfiles, leads, reports, events, cities, media] =
+      await Promise.all([
+        this.prisma.user.count({ where: { deletedAt: null } }),
+        this.prisma.profile.count({ where: { deletedAt: null } }),
+        this.prisma.profile.count({ where: { status: "PUBLISHED", deletedAt: null } }),
+        this.prisma.lead.count({ where: { status: "NEW", deletedAt: null } }),
+        this.prisma.contentReport.count({ where: { status: { in: ["OPEN", "TRIAGED"] } } }),
+        this.prisma.analyticsEvent.count({
+          where: { createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+        }),
+        this.prisma.city.count({ where: { isPublished: true } }),
+        this.prisma.mediaAsset.count({ where: { deletedAt: null } }),
+      ]);
     return {
+      users,
       profiles,
       publishedProfiles,
       newLeads: leads,
@@ -62,6 +66,52 @@ export class AdminController {
       publishedCities: cities,
       media,
     };
+  }
+
+  @Get("users")
+  users() {
+    return this.prisma.user.findMany({
+      where: { deletedAt: null },
+      orderBy: { createdAt: "desc" },
+      take: 500,
+      select: {
+        id: true,
+        displayName: true,
+        email: true,
+        mobile: true,
+        emailVerifiedAt: true,
+        mobileVerifiedAt: true,
+        accountStatus: true,
+        isActive: true,
+        credits: true,
+        lastLoginAt: true,
+        createdAt: true,
+        roles: { select: { role: { select: { name: true } } } },
+        profiles: {
+          where: { deletedAt: null },
+          orderBy: { updatedAt: "desc" },
+          select: {
+            id: true,
+            displayName: true,
+            slug: true,
+            status: true,
+            moderationStatus: true,
+            paymentStatus: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+  }
+
+  @Get("categories")
+  categories() {
+    return this.prisma.category.findMany({ orderBy: { sortOrder: "asc" } });
+  }
+
+  @Patch("categories/:id")
+  updateCategory(@Param("id") id: string, @Body() dto: UpdateCategoryDto) {
+    return this.prisma.category.update({ where: { id }, data: dto });
   }
 
   @Get("profiles")
@@ -184,21 +234,58 @@ export class AdminController {
       await this.prisma.$transaction([
         this.prisma.verificationRecord.upsert({
           where: { profileId: id },
-          update: { status: "VERIFIED", adultConfirmed: true, verifiedAt: new Date(), reviewedById: request.user.id, privateNotes: dto.message },
-          create: { profileId: id, status: "VERIFIED", adultConfirmed: true, verifiedAt: new Date(), reviewedById: request.user.id, privateNotes: dto.message },
+          update: {
+            status: "VERIFIED",
+            adultConfirmed: true,
+            verifiedAt: new Date(),
+            reviewedById: request.user.id,
+            privateNotes: dto.message,
+          },
+          create: {
+            profileId: id,
+            status: "VERIFIED",
+            adultConfirmed: true,
+            verifiedAt: new Date(),
+            reviewedById: request.user.id,
+            privateNotes: dto.message,
+          },
         }),
         this.prisma.consentRecord.create({
-          data: { profileId: id, consentType: "PUBLICATION", evidenceRef: "advertiser-self-attestation", grantedAt: profile.submittedAt ?? new Date(), reviewedById: request.user.id },
+          data: {
+            profileId: id,
+            consentType: "PUBLICATION",
+            evidenceRef: "advertiser-self-attestation",
+            grantedAt: profile.submittedAt ?? new Date(),
+            reviewedById: request.user.id,
+          },
         }),
         this.prisma.profile.update({
           where: { id },
-          data: { moderationStatus: "APPROVED", verificationStatus: "VERIFIED", paymentStatus: dto.paymentStatus ?? "NOT_REQUIRED", moderationMessage: dto.message ?? "Approved by administrator", status: "PUBLISHED", publishedAt: new Date() },
+          data: {
+            moderationStatus: "APPROVED",
+            verificationStatus: "VERIFIED",
+            paymentStatus: dto.paymentStatus ?? "NOT_REQUIRED",
+            moderationMessage: dto.message ?? "Approved by administrator",
+            status: "PUBLISHED",
+            publishedAt: new Date(),
+          },
         }),
       ]);
     } else {
       await this.prisma.profile.update({
         where: { id },
-        data: { moderationStatus: dto.decision, paymentStatus: dto.paymentStatus ?? (dto.decision === "REJECTED" ? "PENDING" : profile.paymentStatus), moderationMessage: dto.message ?? (dto.decision === "REJECTED" ? "Payment or verification is pending. Contact support for assistance." : "Please update the requested details."), status: "DRAFT", publishedAt: null },
+        data: {
+          moderationStatus: dto.decision,
+          paymentStatus:
+            dto.paymentStatus ?? (dto.decision === "REJECTED" ? "PENDING" : profile.paymentStatus),
+          moderationMessage:
+            dto.message ??
+            (dto.decision === "REJECTED"
+              ? "Payment or verification is pending. Contact support for assistance."
+              : "Please update the requested details."),
+          status: "DRAFT",
+          publishedAt: null,
+        },
       });
     }
     return this.prisma.profile.findUniqueOrThrow({ where: { id } });

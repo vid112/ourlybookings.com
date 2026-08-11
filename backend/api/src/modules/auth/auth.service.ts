@@ -1,4 +1,12 @@
-import { BadRequestException, ConflictException, ForbiddenException, HttpException, HttpStatus, Injectable, UnauthorizedException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+  UnauthorizedException,
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { hash, verify } from "argon2";
@@ -16,7 +24,14 @@ export class AuthService {
     private readonly mailer: OtpMailerService,
   ) {}
 
-  async register(firstName: string, lastName: string, email: string, password: string, mobile: string | undefined, termsAccepted: boolean) {
+  async register(
+    firstName: string,
+    lastName: string,
+    email: string,
+    password: string,
+    mobile: string | undefined,
+    termsAccepted: boolean,
+  ) {
     if (!termsAccepted) throw new BadRequestException("Terms and privacy consent are required");
     const normalizedEmail = email.trim().toLowerCase();
     if (await this.prisma.user.findUnique({ where: { email: normalizedEmail } })) {
@@ -44,21 +59,33 @@ export class AuthService {
       await this.prisma.user.delete({ where: { id: user.id } });
       throw error;
     }
-    return { verificationRequired: true, email: user.email, expiresInSeconds: 600, resendAfterSeconds: 60 };
+    return {
+      verificationRequired: true,
+      email: user.email,
+      expiresInSeconds: 600,
+      resendAfterSeconds: 60,
+    };
   }
 
-  async verifyRegistration(email: string, code: string, userAgent?: string) {
+  async verifyRegistration(email: string, code: string) {
     const user = await this.verifyOtp(email, code, "REGISTRATION");
     const activated = await this.prisma.user.update({
       where: { id: user.id },
       data: { emailVerifiedAt: new Date(), accountStatus: "ACTIVE" },
       include: { roles: { include: { role: true } } },
     });
-    return this.createSession(activated, activated.roles.map(({ role }) => role.name), userAgent);
+    return {
+      id: activated.id,
+      email: activated.email,
+      displayName: activated.displayName,
+      roles: activated.roles.map(({ role }) => role.name),
+    };
   }
 
   async resendOtp(email: string, purpose: "REGISTRATION" | "PASSWORD_RESET") {
-    const user = await this.prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+    const user = await this.prisma.user.findUnique({
+      where: { email: email.trim().toLowerCase() },
+    });
     if (!user || user.accountStatus === "BLOCKED") return { sent: true, resendAfterSeconds: 60 };
     if (purpose === "REGISTRATION" && user.accountStatus === "ACTIVE") {
       throw new BadRequestException("Account is already verified");
@@ -68,7 +95,9 @@ export class AuthService {
   }
 
   async requestPasswordReset(email: string) {
-    const user = await this.prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+    const user = await this.prisma.user.findUnique({
+      where: { email: email.trim().toLowerCase() },
+    });
     if (user && user.accountStatus === "ACTIVE" && user.isActive) {
       await this.issueOtp(user.id, user.email, "PASSWORD_RESET", true);
     }
@@ -78,8 +107,14 @@ export class AuthService {
   async resetPassword(email: string, code: string, password: string) {
     const user = await this.verifyOtp(email, code, "PASSWORD_RESET");
     await this.prisma.$transaction([
-      this.prisma.user.update({ where: { id: user.id }, data: { passwordHash: await hash(password) } }),
-      this.prisma.refreshToken.updateMany({ where: { userId: user.id, revokedAt: null }, data: { revokedAt: new Date() } }),
+      this.prisma.user.update({
+        where: { id: user.id },
+        data: { passwordHash: await hash(password) },
+      }),
+      this.prisma.refreshToken.updateMany({
+        where: { userId: user.id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      }),
     ]);
     return { reset: true };
   }
@@ -89,7 +124,12 @@ export class AuthService {
       where: { email: email.toLowerCase() },
       include: { roles: { include: { role: true } } },
     });
-    if (!user || !user.isActive || user.accountStatus === "BLOCKED" || !(await verify(user.passwordHash, password))) {
+    if (
+      !user ||
+      !user.isActive ||
+      user.accountStatus === "BLOCKED" ||
+      !(await verify(user.passwordHash, password))
+    ) {
       throw new UnauthorizedException("Email or password is incorrect");
     }
     if (user.accountStatus === "UNVERIFIED") {
@@ -125,7 +165,8 @@ export class AuthService {
       where: { id: payload.sub },
       include: { roles: { include: { role: true } } },
     });
-    if (!user || !user.isActive || user.accountStatus !== "ACTIVE") throw new UnauthorizedException("Account is unavailable");
+    if (!user || !user.isActive || user.accountStatus !== "ACTIVE")
+      throw new UnauthorizedException("Account is unavailable");
 
     const nextId = randomUUID();
     const next = await this.createSession(
@@ -158,22 +199,46 @@ export class AuthService {
     }
   }
 
-  private async issueOtp(userId: string, email: string, purpose: "REGISTRATION" | "PASSWORD_RESET", skipCooldown = false) {
-    const latest = await this.prisma.verificationCode.findFirst({ where: { userId, purpose }, orderBy: { createdAt: "desc" } });
+  private async issueOtp(
+    userId: string,
+    email: string,
+    purpose: "REGISTRATION" | "PASSWORD_RESET",
+    skipCooldown = false,
+  ) {
+    const latest = await this.prisma.verificationCode.findFirst({
+      where: { userId, purpose },
+      orderBy: { createdAt: "desc" },
+    });
     if (!skipCooldown && latest && latest.createdAt > new Date(Date.now() - 60_000)) {
-      throw new HttpException("Please wait 60 seconds before requesting another code", HttpStatus.TOO_MANY_REQUESTS);
+      throw new HttpException(
+        "Please wait 60 seconds before requesting another code",
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
     const code = randomInt(100000, 1000000).toString();
     await this.prisma.$transaction([
-      this.prisma.verificationCode.updateMany({ where: { userId, purpose, consumedAt: null }, data: { consumedAt: new Date() } }),
-      this.prisma.verificationCode.create({ data: { userId, purpose, codeHash: await hash(code), expiresAt: new Date(Date.now() + 10 * 60_000) } }),
+      this.prisma.verificationCode.updateMany({
+        where: { userId, purpose, consumedAt: null },
+        data: { consumedAt: new Date() },
+      }),
+      this.prisma.verificationCode.create({
+        data: {
+          userId,
+          purpose,
+          codeHash: await hash(code),
+          expiresAt: new Date(Date.now() + 10 * 60_000),
+        },
+      }),
     ]);
     await this.mailer.sendCode(email, code, purpose);
   }
 
   private async verifyOtp(email: string, code: string, purpose: "REGISTRATION" | "PASSWORD_RESET") {
-    const user = await this.prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
-    if (!user || user.accountStatus === "BLOCKED") throw new BadRequestException("Verification code is invalid or expired");
+    const user = await this.prisma.user.findUnique({
+      where: { email: email.trim().toLowerCase() },
+    });
+    if (!user || user.accountStatus === "BLOCKED")
+      throw new BadRequestException("Verification code is invalid or expired");
     const record = await this.prisma.verificationCode.findFirst({
       where: { userId: user.id, purpose, consumedAt: null },
       orderBy: { createdAt: "desc" },
@@ -184,10 +249,16 @@ export class AuthService {
     const valid = await verify(record.codeHash, code);
     await this.prisma.verificationCode.update({
       where: { id: record.id },
-      data: { attempts: { increment: 1 }, ...(!valid && record.attempts + 1 >= 5 ? { consumedAt: new Date() } : {}) },
+      data: {
+        attempts: { increment: 1 },
+        ...(!valid && record.attempts + 1 >= 5 ? { consumedAt: new Date() } : {}),
+      },
     });
     if (!valid) throw new BadRequestException("Verification code is invalid or expired");
-    await this.prisma.verificationCode.update({ where: { id: record.id }, data: { consumedAt: new Date() } });
+    await this.prisma.verificationCode.update({
+      where: { id: record.id },
+      data: { consumedAt: new Date() },
+    });
     return user;
   }
 

@@ -4,81 +4,108 @@ import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
-type SearchState = {
+type Country = {
+  id: string;
   name: string;
   slug: string;
-  cities: readonly { name: string; slug: string }[];
+  states: {
+    id?: string;
+    name: string;
+    slug: string;
+    cities: readonly { name: string; slug: string }[];
+  }[];
 };
+type Category = { id: string; name: string; slug: string };
 
-export function HeroSearch({ states }: { states: readonly SearchState[] }) {
+export function HeroSearch({
+  countries,
+  categories,
+}: {
+  countries: readonly Country[];
+  categories: readonly Category[];
+}) {
   const router = useRouter();
+  const [countrySlug, setCountrySlug] = useState("");
   const [stateSlug, setStateSlug] = useState("");
   const [citySlug, setCitySlug] = useState("");
-  const selectedState = useMemo(
-    () => states.find((state) => state.slug === stateSlug),
-    [stateSlug, states],
+  const [categorySlug, setCategorySlug] = useState("");
+  const selectedCountry = useMemo(
+    () => countries.find((country) => country.slug === countrySlug),
+    [countries, countrySlug],
   );
-
+  const selectedState = selectedCountry?.states.find((state) => state.slug === stateSlug);
   return (
     <form
-      className="glass-surface grid gap-3 rounded-2xl p-3 sm:grid-cols-3 lg:grid-cols-[1fr_1fr_1fr_auto]"
+      className="glass-surface grid gap-3 rounded-2xl p-3 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1fr_auto]"
       onSubmit={(event) => {
         event.preventDefault();
-        if (!stateSlug) {
-          router.push("/profiles");
-          return;
-        }
-        router.push(citySlug ? `/india/${stateSlug}/${citySlug}` : `/india/${stateSlug}`);
+        const query = new URLSearchParams();
+        if (categorySlug) query.set("category", categorySlug);
+        if (countrySlug) query.set("country", countrySlug);
+        if (stateSlug) query.set("state", stateSlug);
+        if (citySlug) query.set("city", citySlug);
+        router.push(`/profiles?${query.toString()}`);
       }}
-      aria-label="Find profiles by location"
+      aria-label="Find profiles worldwide"
     >
-      <label className="sr-only" htmlFor="category">
-        Category
-      </label>
       <select
-        id="category"
-        className="min-h-12 rounded-xl border border-white/12 bg-surface-2 px-4 text-sm text-paper"
+        aria-label="Category"
+        value={categorySlug}
+        onChange={(event) => setCategorySlug(event.target.value)}
+        className={heroField}
       >
-        <option>All categories</option>
-        <option>Independent</option>
-        <option>Model</option>
-        <option>VIP</option>
-        <option>College</option>
-        <option>Massage</option>
+        <option value="">All categories</option>
+        {categories.map((category) => (
+          <option key={category.id} value={category.slug}>
+            {category.name}
+          </option>
+        ))}
       </select>
-      <label className="sr-only" htmlFor="state">
-        State
-      </label>
       <select
-        id="state"
+        aria-label="Country"
+        value={countrySlug}
+        onChange={(event) => {
+          setCountrySlug(event.target.value);
+          setStateSlug("");
+          setCitySlug("");
+        }}
+        className={heroField}
+      >
+        <option value="">All countries</option>
+        {countries.map((country) => (
+          <option key={country.id} value={country.slug}>
+            {country.name}
+          </option>
+        ))}
+      </select>
+      <select
+        aria-label="State or region"
         value={stateSlug}
         onChange={(event) => {
           setStateSlug(event.target.value);
           setCitySlug("");
         }}
-        className="min-h-12 rounded-xl border border-white/12 bg-surface-2 px-4 text-sm text-paper"
+        disabled={!selectedCountry}
+        className={heroField}
       >
-        <option value="">Select state</option>
-        {states.map((state) => (
+        <option value="">All regions</option>
+        {selectedCountry?.states.map((state) => (
           <option key={state.slug} value={state.slug}>
             {state.name}
           </option>
         ))}
       </select>
-      <label className="sr-only" htmlFor="city">
-        City
-      </label>
       <select
-        id="city"
+        aria-label="City"
         value={citySlug}
         onChange={(event) => setCitySlug(event.target.value)}
         disabled={!selectedState}
-        className="min-h-12 rounded-xl border border-white/12 bg-surface-2 px-4 text-sm text-paper disabled:cursor-not-allowed disabled:opacity-55"
+        className={heroField}
       >
-        <option value="">Select city</option>
-        {selectedState?.cities.map((item) => (
-          <option key={item.slug} value={item.slug}>
-            {item.name}
+        <option value="">All cities</option>
+        {selectedState?.cities.map((city) => (
+          <option key={city.slug} value={city.slug}>
+            {city.name}
           </option>
         ))}
       </select>
@@ -86,8 +113,11 @@ export function HeroSearch({ states }: { states: readonly SearchState[] }) {
         type="submit"
         className="brand-gradient inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-6 text-sm font-bold text-white"
       >
-        <Search size={17} aria-hidden="true" /> Search
+        <Search size={17} /> Search
       </button>
     </form>
   );
 }
+
+const heroField =
+  "min-h-12 rounded-xl border border-white/12 bg-surface-2 px-4 text-sm text-paper disabled:cursor-not-allowed disabled:opacity-55";

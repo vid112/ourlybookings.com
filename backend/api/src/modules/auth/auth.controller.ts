@@ -8,7 +8,13 @@ import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
 import { AuthGuard } from "./auth.guard";
 import type { AuthenticatedRequest } from "./auth.types";
-import { RequestPasswordResetDto, ResendOtpDto, ResetPasswordDto, VerifyOtpDto } from "./dto/otp.dto";
+import {
+  RequestPasswordResetDto,
+  ResendOtpDto,
+  ResetPasswordDto,
+  VerifyOtpDto,
+} from "./dto/otp.dto";
+import { TurnstileService } from "./turnstile.service";
 
 @ApiTags("authentication")
 @Controller("auth")
@@ -16,27 +22,29 @@ export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly config: ConfigService,
+    private readonly turnstile: TurnstileService,
   ) {}
 
   @Post("register")
   @Throttle({ default: { limit: 3, ttl: minutes(10) } })
-  async register(
-    @Body() dto: RegisterDto,
-  ) {
-    return this.auth.register(dto.firstName, dto.lastName, dto.email, dto.password, dto.mobile, dto.termsAccepted);
+  async register(@Body() dto: RegisterDto, @Req() request: Request) {
+    await this.turnstile.verify(dto.turnstileToken, request.ip);
+    return this.auth.register(
+      dto.firstName,
+      dto.lastName,
+      dto.email,
+      dto.password,
+      dto.mobile,
+      dto.termsAccepted,
+    );
   }
 
   @Post("verify-otp")
   @Throttle({ default: { limit: 5, ttl: minutes(10) } })
-  async verifyOtp(
-    @Body() dto: VerifyOtpDto,
-    @Req() request: Request,
-    @Res({ passthrough: true }) response: Response,
-  ) {
+  async verifyOtp(@Body() dto: VerifyOtpDto) {
     if (dto.purpose !== "REGISTRATION") return { verified: true };
-    const session = await this.auth.verifyRegistration(dto.email, dto.code, request.get("user-agent"));
-    this.writeCookies(response, session.accessToken, session.refreshToken);
-    return { user: session.user };
+    const user = await this.auth.verifyRegistration(dto.email, dto.code);
+    return { verified: true, user };
   }
 
   @Post("resend-otp")
@@ -70,6 +78,7 @@ export class AuthController {
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ) {
+    await this.turnstile.verify(dto.turnstileToken, request.ip);
     const session = await this.auth.login(dto.email, dto.password, request.get("user-agent"));
     this.writeCookies(response, session.accessToken, session.refreshToken);
     return { user: session.user };

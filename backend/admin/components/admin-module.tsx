@@ -5,7 +5,16 @@ import { FormEvent, useState, useTransition } from "react";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
 
-type ModuleName = "profiles" | "media" | "locations" | "seo" | "leads" | "analytics" | "settings";
+type ModuleName =
+  | "profiles"
+  | "users"
+  | "categories"
+  | "media"
+  | "locations"
+  | "seo"
+  | "leads"
+  | "analytics"
+  | "settings";
 type City = {
   id: string;
   name: string;
@@ -74,6 +83,38 @@ type Analytics = {
   since: string;
   total: number;
   byType: { type: string; _count: { _all: number } }[];
+};
+type AdvertiserUser = {
+  id: string;
+  displayName: string;
+  email: string;
+  mobile?: string;
+  emailVerifiedAt?: string;
+  mobileVerifiedAt?: string;
+  accountStatus: string;
+  isActive: boolean;
+  credits: number;
+  lastLoginAt?: string;
+  createdAt: string;
+  roles: { role: { name: string } }[];
+  profiles: {
+    id: string;
+    displayName: string;
+    slug: string;
+    status: string;
+    moderationStatus: string;
+    paymentStatus: string;
+    createdAt: string;
+  }[];
+};
+type CategoryRow = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  imageUrl?: string;
+  isPublished: boolean;
+  sortOrder: number;
 };
 
 async function request(path: string, method = "GET", body?: unknown) {
@@ -186,38 +227,100 @@ function ProfilesModule({ data }: { data: unknown }) {
                     ? `${profile.locations[0].city.name}, ${profile.locations[0].city.state.name}`
                     : "No primary city"}
                 </p>
-                {profile.owner ? <p className="mt-1 text-xs text-muted">Advertiser: {profile.owner.email}</p> : null}
+                {profile.owner ? (
+                  <p className="mt-1 text-xs text-muted">Advertiser: {profile.owner.email}</p>
+                ) : null}
                 <div className="mt-2 flex flex-wrap gap-2 text-xs font-bold">
                   <span className="rounded-full bg-white/8 px-2.5 py-1">{profile.status}</span>
                   <span className="rounded-full bg-white/8 px-2.5 py-1">
                     {profile.verificationStatus}
                   </span>
-                  <span className="rounded-full bg-white/8 px-2.5 py-1">{profile.moderationStatus}</span>
-                  <span className="rounded-full bg-white/8 px-2.5 py-1">Payment: {profile.paymentStatus}</span>
-                  <span className="rounded-full bg-white/8 px-2.5 py-1">₹{profile.promotionAmount} · Priority {profile.adminPriority}</span>
+                  <span className="rounded-full bg-white/8 px-2.5 py-1">
+                    {profile.moderationStatus}
+                  </span>
+                  <span className="rounded-full bg-white/8 px-2.5 py-1">
+                    Payment: {profile.paymentStatus}
+                  </span>
+                  <span className="rounded-full bg-white/8 px-2.5 py-1">
+                    ₹{profile.promotionAmount} · Priority {profile.adminPriority}
+                  </span>
                 </div>
-                {profile.moderationMessage ? <p className="mt-2 text-xs text-muted">Message: {profile.moderationMessage}</p> : null}
+                {profile.moderationMessage ? (
+                  <p className="mt-2 text-xs text-muted">Message: {profile.moderationMessage}</p>
+                ) : null}
               </div>
               <div className="flex gap-2">
-                {profile.moderationStatus === "PENDING" || profile.moderationStatus === "CHANGES_REQUESTED" || profile.moderationStatus === "REJECTED" ? (
+                {profile.moderationStatus === "PENDING" ||
+                profile.moderationStatus === "CHANGES_REQUESTED" ||
+                profile.moderationStatus === "REJECTED" ? (
                   <button
                     disabled={pending}
-                    onClick={() => run(() => request(`/admin/profiles/${profile.id}/moderate`, "POST", { decision: "APPROVED", paymentStatus: "PAID", message: "Approved and published" }), "Advertisement approved and published.")}
+                    onClick={() =>
+                      run(
+                        () =>
+                          request(`/admin/profiles/${profile.id}/moderate`, "POST", {
+                            decision: "APPROVED",
+                            paymentStatus: "PAID",
+                            message: "Approved and published",
+                          }),
+                        "Advertisement approved and published.",
+                      )
+                    }
                     className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold disabled:opacity-50"
-                  >Approve</button>
+                  >
+                    Approve
+                  </button>
                 ) : null}
                 {profile.moderationStatus === "PENDING" ? (
                   <button
                     disabled={pending}
-                    onClick={() => { const reason = window.prompt("Rejection/payment message for advertiser", "Your payment is pending. Contact support by WhatsApp, Telegram or email."); if (reason) run(() => request(`/admin/profiles/${profile.id}/moderate`, "POST", { decision: "REJECTED", paymentStatus: "PENDING", message: reason }), "Advertisement rejected and advertiser notified."); }}
+                    onClick={() => {
+                      const reason = window.prompt(
+                        "Rejection/payment message for advertiser",
+                        "Your payment is pending. Contact support by WhatsApp, Telegram or email.",
+                      );
+                      if (reason)
+                        run(
+                          () =>
+                            request(`/admin/profiles/${profile.id}/moderate`, "POST", {
+                              decision: "REJECTED",
+                              paymentStatus: "PENDING",
+                              message: reason,
+                            }),
+                          "Advertisement rejected and advertiser notified.",
+                        );
+                    }}
                     className="rounded-lg border border-amber-400/40 px-3 py-2 text-sm font-bold text-amber-200 disabled:opacity-50"
-                  >Reject</button>
+                  >
+                    Reject
+                  </button>
                 ) : null}
                 <button
                   disabled={pending}
-                  onClick={() => { const amount = window.prompt("Promotion amount in INR", String(profile.promotionAmount)); if (amount === null) return; const priority = window.prompt("Admin priority (higher appears first)", String(profile.adminPriority)); if (priority === null) return; run(() => request(`/admin/profiles/${profile.id}/rank`, "PATCH", { promotionAmount: Number(amount), adminPriority: Number(priority) }), "Ranking updated."); }}
+                  onClick={() => {
+                    const amount = window.prompt(
+                      "Promotion amount in INR",
+                      String(profile.promotionAmount),
+                    );
+                    if (amount === null) return;
+                    const priority = window.prompt(
+                      "Admin priority (higher appears first)",
+                      String(profile.adminPriority),
+                    );
+                    if (priority === null) return;
+                    run(
+                      () =>
+                        request(`/admin/profiles/${profile.id}/rank`, "PATCH", {
+                          promotionAmount: Number(amount),
+                          adminPriority: Number(priority),
+                        }),
+                      "Ranking updated.",
+                    );
+                  }}
                   className="rounded-lg border border-white/15 px-3 py-2 text-sm font-bold disabled:opacity-50"
-                >Rank</button>
+                >
+                  Rank
+                </button>
                 {profile.status !== "PUBLISHED" ? (
                   <button
                     disabled={pending}
@@ -702,6 +805,182 @@ function SettingsModule({ data }: { data: unknown }) {
   );
 }
 
+function UsersModule({ data }: { data: unknown }) {
+  const users = Array.isArray(data) ? (data as AdvertiserUser[]) : [];
+  return (
+    <section className="mt-10">
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <h2 className="text-xl font-bold">{users.length} registered users</h2>
+        <span className="text-sm text-muted">
+          Account and advert ownership is stored permanently
+        </span>
+      </div>
+      <div className="space-y-4">
+        {users.map((user) => (
+          <article key={user.id} className="rounded-[18px] border border-white/12 bg-surface p-5">
+            <div className="flex flex-wrap justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-bold">{user.displayName}</h3>
+                <p className="mt-1 text-sm text-muted">
+                  {user.email}
+                  {user.mobile ? ` · ${user.mobile}` : ""}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2 text-xs font-bold">
+                <span className="rounded-full bg-white/8 px-3 py-1">{user.accountStatus}</span>
+                <span className="rounded-full bg-white/8 px-3 py-1">
+                  Email: {user.emailVerifiedAt ? "VERIFIED" : "PENDING"}
+                </span>
+                <span className="rounded-full bg-white/8 px-3 py-1">
+                  Mobile: {user.mobileVerifiedAt ? "VERIFIED" : "PENDING"}
+                </span>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3 text-sm sm:grid-cols-4">
+              <p>
+                <span className="text-muted">Joined</span>
+                <br />
+                {new Date(user.createdAt).toLocaleString()}
+              </p>
+              <p>
+                <span className="text-muted">Last login</span>
+                <br />
+                {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : "Never"}
+              </p>
+              <p>
+                <span className="text-muted">Roles</span>
+                <br />
+                {user.roles.map((item) => item.role.name).join(", ")}
+              </p>
+              <p>
+                <span className="text-muted">Advertisements</span>
+                <br />
+                {user.profiles.length}
+              </p>
+            </div>
+            {user.profiles.length ? (
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="text-muted">
+                    <tr>
+                      <th className="py-2">Advert</th>
+                      <th>Status</th>
+                      <th>Moderation</th>
+                      <th>Payment</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {user.profiles.map((profile) => (
+                      <tr key={profile.id} className="border-t border-white/10">
+                        <td className="py-3 font-semibold">{profile.displayName}</td>
+                        <td>{profile.status}</td>
+                        <td>{profile.moderationStatus}</td>
+                        <td>{profile.paymentStatus}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-muted">No advertisements posted yet.</p>
+            )}
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CategoryEditor({ category }: { category: CategoryRow }) {
+  const [name, setName] = useState(category.name);
+  const [description, setDescription] = useState(category.description);
+  const [imageUrl, setImageUrl] = useState(category.imageUrl ?? "");
+  const [published, setPublished] = useState(category.isPublished);
+  const { pending, message, run } = useAction();
+  return (
+    <article className="rounded-[18px] border border-white/12 bg-surface p-5">
+      {imageUrl ? (
+        // Category URLs are entered by an administrator and displayed as a preview only.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={imageUrl}
+          alt={`${name} category preview`}
+          className="mb-5 aspect-[16/8] w-full rounded-xl object-cover"
+        />
+      ) : (
+        <div className="mb-5 grid aspect-[16/8] place-items-center rounded-xl bg-surface-2 text-sm text-muted">
+          Upload an image in Media, then paste its URL below
+        </div>
+      )}
+      <label className="block text-sm font-bold">
+        Name
+        <input
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          className="mt-2 min-h-11 w-full rounded-xl border border-white/12 bg-surface-2 px-3"
+        />
+      </label>
+      <label className="mt-4 block text-sm font-bold">
+        Description
+        <textarea
+          value={description}
+          onChange={(event) => setDescription(event.target.value)}
+          className="mt-2 min-h-24 w-full rounded-xl border border-white/12 bg-surface-2 p-3"
+        />
+      </label>
+      <label className="mt-4 block text-sm font-bold">
+        Homepage image URL
+        <input
+          value={imageUrl}
+          onChange={(event) => setImageUrl(event.target.value)}
+          placeholder="https://…"
+          className="mt-2 min-h-11 w-full rounded-xl border border-white/12 bg-surface-2 px-3"
+        />
+      </label>
+      <label className="mt-4 flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={published}
+          onChange={(event) => setPublished(event.target.checked)}
+        />{" "}
+        Published
+      </label>
+      <button
+        disabled={pending}
+        onClick={() =>
+          run(
+            () =>
+              request(`/admin/categories/${category.id}`, "PATCH", {
+                name,
+                description,
+                imageUrl: imageUrl || undefined,
+                isPublished: published,
+              }),
+            "Category saved.",
+          )
+        }
+        className="mt-5 rounded-xl bg-brand px-5 py-2.5 font-bold disabled:opacity-50"
+      >
+        Save category
+      </button>
+      <Notice message={message} />
+    </article>
+  );
+}
+
+function CategoriesModule({ data }: { data: unknown }) {
+  const categories = Array.isArray(data) ? (data as CategoryRow[]) : [];
+  return (
+    <section className="mt-10">
+      <div className="grid gap-5 lg:grid-cols-2">
+        {categories.map((category) => (
+          <CategoryEditor key={category.id} category={category} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function AdminModule({ module, initialData }: { module: ModuleName; initialData: unknown }) {
   if (initialData === null)
     return (
@@ -711,6 +990,8 @@ export function AdminModule({ module, initialData }: { module: ModuleName; initi
       </Empty>
     );
   if (module === "profiles") return <ProfilesModule data={initialData} />;
+  if (module === "users") return <UsersModule data={initialData} />;
+  if (module === "categories") return <CategoriesModule data={initialData} />;
   if (module === "media") return <MediaModule data={initialData} />;
   if (module === "locations") return <LocationsModule data={initialData} />;
   if (module === "seo") return <SeoModule data={initialData} />;

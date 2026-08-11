@@ -2,28 +2,42 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ProfileCard } from "@/components/profile-card";
-import { categories, indiaStates } from "@/data/india";
-import { getDirectoryLocations, getDirectoryProfiles } from "@/lib/directory";
+import { getDirectoryOptions, getDirectoryProfiles } from "@/lib/directory";
 
 export const metadata: Metadata = {
-  title: "Independent Profiles Across India",
-  description: "Browse adult profiles by Indian state, city and category on Ourly Bookings.",
+  title: "Independent Profiles Worldwide",
+  description:
+    "Browse adult advertisements by country, region, city, category and profile filters.",
   alternates: { canonical: "/profiles" },
 };
 
-type ProfilesPageProps = {
-  searchParams: Promise<{ state?: string; city?: string; category?: string }>;
+type Filters = {
+  q?: string;
+  country?: string;
+  state?: string;
+  city?: string;
+  area?: string;
+  category?: string;
+  service?: string;
+  gender?: string;
+  ethnicity?: string;
+  nationality?: string;
+  bust?: string;
+  hair?: string;
+  bodyType?: string;
+  attentionTo?: string;
+  placeOfService?: string;
 };
 
-export default async function ProfilesPage({ searchParams }: ProfilesPageProps) {
+export default async function ProfilesPage({ searchParams }: { searchParams: Promise<Filters> }) {
   const filters = await searchParams;
-  const [apiLocations, profiles] = await Promise.all([
-    getDirectoryLocations(),
+  const [options, profiles] = await Promise.all([
+    getDirectoryOptions(),
     getDirectoryProfiles(filters),
   ]);
-  const locations = apiLocations?.length ? apiLocations : indiaStates;
-  const selectedState = locations.find((state) => state.slug === filters.state);
-  const hasLiveProfiles = profiles.some((profile) => !profile.isDemo);
+  const selectedCountry = options?.countries.find((country) => country.slug === filters.country);
+  const selectedState = selectedCountry?.states.find((state) => state.slug === filters.state);
+  const hasFilters = Object.values(filters).some(Boolean);
 
   return (
     <div className="section-space">
@@ -31,25 +45,40 @@ export default async function ProfilesPage({ searchParams }: ProfilesPageProps) 
         <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Profiles" }]} />
         <div className="max-w-4xl">
           <h1 className="text-balance font-display text-5xl font-bold tracking-[-0.055em] sm:text-6xl">
-            Independent profiles across India
+            Independent profiles worldwide
           </h1>
           <p className="mt-6 text-lg leading-8 text-muted">
-            Filter listings by location and category. Every published record passes the admin
-            workflow for adult status, source evidence, consent, media and location.
+            Search approved listings by country, city, category and detailed profile preferences.
+            Every public record has completed the admin moderation workflow.
           </p>
         </div>
         <form
-          className="surface-border mt-12 grid gap-3 rounded-[20px] bg-surface p-4 sm:grid-cols-3 lg:grid-cols-[1fr_1fr_1fr_auto]"
+          className="surface-border mt-12 grid gap-3 rounded-[20px] bg-surface p-4 md:grid-cols-2 xl:grid-cols-[1.2fr_1fr_1fr_1fr_1fr_auto]"
           action="/profiles"
         >
+          <input
+            name="q"
+            defaultValue={filters.q ?? ""}
+            placeholder="Name or keyword"
+            className={filterClass}
+          />
+          <select name="country" defaultValue={filters.country ?? ""} className={filterClass}>
+            <option value="">All countries</option>
+            {options?.countries.map((country) => (
+              <option key={country.id} value={country.slug}>
+                {country.name}
+              </option>
+            ))}
+          </select>
           <select
             name="state"
             defaultValue={filters.state ?? ""}
-            className="min-h-12 rounded-xl border border-white/12 bg-surface-2 px-4"
+            className={filterClass}
+            disabled={!selectedCountry}
           >
-            <option value="">All states</option>
-            {locations.map((state) => (
-              <option key={state.slug} value={state.slug}>
+            <option value="">All regions</option>
+            {selectedCountry?.states.map((state) => (
+              <option key={state.id} value={state.slug}>
                 {state.name}
               </option>
             ))}
@@ -57,37 +86,33 @@ export default async function ProfilesPage({ searchParams }: ProfilesPageProps) 
           <select
             name="city"
             defaultValue={filters.city ?? ""}
-            className="min-h-12 rounded-xl border border-white/12 bg-surface-2 px-4"
+            className={filterClass}
+            disabled={!selectedState}
           >
             <option value="">All cities</option>
             {selectedState?.cities.map((city) => (
-              <option key={city.slug} value={city.slug}>
+              <option key={city.id} value={city.slug}>
                 {city.name}
               </option>
             ))}
           </select>
-          <select
-            name="category"
-            defaultValue={filters.category ?? ""}
-            className="min-h-12 rounded-xl border border-white/12 bg-surface-2 px-4"
-          >
+          <select name="category" defaultValue={filters.category ?? ""} className={filterClass}>
             <option value="">All categories</option>
-            {categories.map((category) => (
-              <option key={category} value={category.toLowerCase()}>
-                {category}
+            {options?.categories.map((category) => (
+              <option key={category.id} value={category.slug}>
+                {category.name}
               </option>
             ))}
           </select>
           <button type="submit" className="brand-gradient min-h-12 rounded-xl px-6 font-bold">
-            Apply filters
+            Search
           </button>
         </form>
         <div className="mt-10 flex items-center justify-between gap-4">
           <p className="text-sm text-muted">
-            Showing {profiles.length} {hasLiveProfiles ? "published" : "demo"}{" "}
-            {profiles.length === 1 ? "profile" : "profiles"}
+            Showing {profiles.length} published {profiles.length === 1 ? "profile" : "profiles"}
           </p>
-          {filters.state || filters.city || filters.category ? (
+          {hasFilters ? (
             <Link href="/profiles" className="text-sm font-bold text-brand">
               Clear filters
             </Link>
@@ -108,3 +133,6 @@ export default async function ProfilesPage({ searchParams }: ProfilesPageProps) 
     </div>
   );
 }
+
+const filterClass =
+  "min-h-12 rounded-xl border border-white/12 bg-surface-2 px-4 text-paper disabled:opacity-45";

@@ -6,6 +6,7 @@ import { AuthGuard } from "./auth.guard";
 import { AuthService } from "./auth.service";
 import { RolesGuard } from "./roles.guard";
 import { OtpMailerService } from "./otp-mailer.service";
+import { TurnstileService } from "./turnstile.service";
 
 @Module({
   imports: [
@@ -17,7 +18,7 @@ import { OtpMailerService } from "./otp-mailer.service";
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, AuthGuard, RolesGuard, OtpMailerService],
-  exports: [AuthGuard, RolesGuard, JwtModule],
+  providers: [AuthService, AuthGuard, RolesGuard, OtpMailerService, TurnstileService],
+  exports: [AuthGuard, RolesGuard, JwtModule, TurnstileService],
 })
 export class AuthModule {}

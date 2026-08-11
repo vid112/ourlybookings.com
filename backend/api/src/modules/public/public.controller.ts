@@ -31,13 +31,14 @@ export class PublicController {
 
   @Get("ad-options")
   async adOptions() {
-    const [countries, categories] = await Promise.all([
+    const [countries, categories, services] = await Promise.all([
       this.prisma.country.findMany({
         orderBy: { name: "asc" },
         select: {
           id: true,
           name: true,
           code: true,
+          slug: true,
           states: {
             where: { isPublished: true },
             orderBy: { name: "asc" },
@@ -45,14 +46,78 @@ export class PublicController {
               id: true,
               name: true,
               slug: true,
-              cities: { where: { isPublished: true }, orderBy: { name: "asc" }, select: { id: true, name: true, slug: true } },
+              cities: {
+                where: { isPublished: true },
+                orderBy: { name: "asc" },
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                  areas: {
+                    where: { isPublished: true },
+                    orderBy: { name: "asc" },
+                    select: { id: true, name: true, slug: true },
+                  },
+                },
+              },
             },
           },
         },
       }),
-      this.prisma.category.findMany({ where: { isPublished: true }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true, slug: true } }),
+      this.prisma.category.findMany({
+        where: { isPublished: true },
+        orderBy: { sortOrder: "asc" },
+        select: { id: true, name: true, slug: true, description: true, imageUrl: true },
+      }),
+      this.prisma.service.findMany({
+        where: { isPublished: true },
+        orderBy: { sortOrder: "asc" },
+        select: { id: true, name: true, slug: true },
+      }),
     ]);
-    return { countries, categories };
+    return { countries, categories, services };
+  }
+
+  @Get("categories")
+  categories() {
+    return this.prisma.category.findMany({
+      where: { isPublished: true },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, name: true, slug: true, description: true, imageUrl: true },
+    });
+  }
+
+  @Get("categories/:slug/locations")
+  async categoryLocations(@Param("slug") slug: string) {
+    const category = await this.prisma.category.findFirst({
+      where: { slug, isPublished: true },
+      select: { id: true, name: true, slug: true, description: true, imageUrl: true },
+    });
+    if (!category) throw new NotFoundException("Category not found");
+    const cities = await this.prisma.city.findMany({
+      where: {
+        isPublished: true,
+        profiles: {
+          some: {
+            profile: {
+              status: "PUBLISHED",
+              moderationStatus: "APPROVED",
+              deletedAt: null,
+              categories: { some: { category: { slug } } },
+            },
+          },
+        },
+      },
+      orderBy: { name: "asc" },
+      select: {
+        name: true,
+        slug: true,
+        state: {
+          select: { name: true, slug: true, country: { select: { name: true, slug: true } } },
+        },
+      },
+    });
+    return { category, cities };
   }
 
   @Get("home")
@@ -82,26 +147,68 @@ export class PublicController {
 
   @Get("profiles")
   async profiles(
+    @Query("q") q?: string,
+    @Query("country") country?: string,
     @Query("state") state?: string,
     @Query("city") city?: string,
+    @Query("area") area?: string,
     @Query("category") category?: string,
+    @Query("service") service?: string,
+    @Query("gender") gender?: string,
+    @Query("ethnicity") ethnicity?: string,
+    @Query("nationality") nationality?: string,
+    @Query("bust") bust?: string,
+    @Query("hair") hair?: string,
+    @Query("bodyType") bodyType?: string,
+    @Query("attentionTo") attentionTo?: string,
+    @Query("placeOfService") placeOfService?: string,
   ) {
     return this.prisma.profile.findMany({
       where: {
         status: "PUBLISHED",
         moderationStatus: "APPROVED",
         deletedAt: null,
-        ...(state || city
+        ...(q
+          ? {
+              OR: [
+                { displayName: { contains: q, mode: "insensitive" } },
+                { adTitle: { contains: q, mode: "insensitive" } },
+                { shortIntro: { contains: q, mode: "insensitive" } },
+              ],
+            }
+          : {}),
+        ...(country || state || city || area
           ? {
               locations: {
                 some: {
-                  ...(state ? { city: { state: { slug: state } } } : {}),
-                  ...(city ? { city: { slug: city } } : {}),
+                  ...(area ? { area: { slug: area } } : {}),
+                  city: {
+                    ...(city ? { slug: city } : {}),
+                    ...(country || state
+                      ? {
+                          state: {
+                            ...(state ? { slug: state } : {}),
+                            ...(country ? { country: { slug: country } } : {}),
+                          },
+                        }
+                      : {}),
+                  },
                 },
               },
             }
           : {}),
         ...(category ? { categories: { some: { category: { slug: category } } } } : {}),
+        ...(service ? { services: { some: { service: { slug: service } } } } : {}),
+        ...(gender ? { gender: { equals: gender, mode: "insensitive" } } : {}),
+        ...(ethnicity ? { ethnicity: { equals: ethnicity, mode: "insensitive" } } : {}),
+        ...(nationality ? { nationality: { equals: nationality, mode: "insensitive" } } : {}),
+        ...(bust ? { bust: { equals: bust, mode: "insensitive" } } : {}),
+        ...(hair ? { hairColor: { equals: hair, mode: "insensitive" } } : {}),
+        ...(bodyType ? { bodyType: { equals: bodyType, mode: "insensitive" } } : {}),
+        ...(attentionTo ? { attentionTo: { equals: attentionTo, mode: "insensitive" } } : {}),
+        ...(placeOfService
+          ? { placeOfService: { equals: placeOfService, mode: "insensitive" } }
+          : {}),
       },
       orderBy: [{ adminPriority: "desc" }, { promotionAmount: "desc" }, { publishedAt: "desc" }],
       take: 48,
@@ -221,6 +328,18 @@ export class PublicController {
       slug: true,
       age: true,
       nationality: true,
+      adTitle: true,
+      gender: true,
+      ethnicity: true,
+      eyeColor: true,
+      hairColor: true,
+      weightKg: true,
+      heightCm: true,
+      bodyType: true,
+      bust: true,
+      attentionTo: true,
+      placeOfService: true,
+      availabilitySlots: true,
       verificationStatus: true,
       languages: true,
       shortIntro: true,
@@ -242,7 +361,17 @@ export class PublicController {
         take: 1,
         select: {
           city: {
-            select: { name: true, slug: true, state: { select: { name: true, slug: true } } },
+            select: {
+              name: true,
+              slug: true,
+              state: {
+                select: {
+                  name: true,
+                  slug: true,
+                  country: { select: { name: true, slug: true, code: true } },
+                },
+              },
+            },
           },
         },
       },

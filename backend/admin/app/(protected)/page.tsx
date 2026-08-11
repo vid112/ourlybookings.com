@@ -2,6 +2,7 @@ import { AlertTriangle, BarChart3, FileText, UsersRound } from "lucide-react";
 import { adminApi } from "@/lib/api";
 
 type Summary = {
+  users: number;
   profiles: number;
   newLeads: number;
   openReports: number;
@@ -10,6 +11,7 @@ type Summary = {
 export default async function DashboardPage() {
   const data = await adminApi<Summary>("/admin/dashboard");
   const cards = [
+    [UsersRound, "Registered users", data?.users ?? "—"],
     [UsersRound, "Profiles", data?.profiles ?? "—"],
     [FileText, "New leads", data?.newLeads ?? "—"],
     [AlertTriangle, "Open reports", data?.openReports ?? "—"],

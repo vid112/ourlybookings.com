@@ -3,16 +3,20 @@ import {
   FileSearch,
   Images,
   LayoutDashboard,
+  LayoutGrid,
   MapPinned,
   SearchCheck,
   Settings,
   UserRoundCog,
+  UsersRound,
 } from "lucide-react";
 import Link from "next/link";
 
 const nav = [
   [LayoutDashboard, "Dashboard", "/"],
   [UserRoundCog, "Profiles", "/profiles"],
+  [UsersRound, "Users", "/users"],
+  [LayoutGrid, "Categories", "/categories"],
   [Images, "Media", "/media"],
   [MapPinned, "Locations", "/locations"],
   [SearchCheck, "SEO centre", "/seo"],

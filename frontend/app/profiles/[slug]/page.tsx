@@ -1,5 +1,14 @@
 import type { Metadata } from "next";
-import { BadgeCheck, Languages, Mail, MapPin, MessageCircle, Phone, Send, ShieldAlert } from "lucide-react";
+import {
+  BadgeCheck,
+  Languages,
+  Mail,
+  MapPin,
+  MessageCircle,
+  Phone,
+  Send,
+  ShieldAlert,
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -76,8 +85,13 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
               {profile.isDemo ? "Fictional demo profile" : "18+ published listing"}
             </div>
             <h1 className="mt-6 font-display text-5xl font-bold tracking-[-0.055em]">
-              {profile.name}, {profile.age}
+              {profile.adTitle || `${profile.name}, ${profile.age}`}
             </h1>
+            {profile.adTitle ? (
+              <p className="mt-2 text-lg font-semibold">
+                {profile.name}, {profile.age}
+              </p>
+            ) : null}
             <p className="mt-3 text-lg font-bold text-brand">
               {profile.category} · {profile.city}
             </p>
@@ -126,7 +140,41 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
                   {profile.images.length} authorized source image(s)
                 </dd>
               </div>
+              {[
+                ["Gender", profile.gender],
+                ["Nationality", profile.nationality],
+                ["Ethnicity", profile.ethnicity],
+                ["Hair", profile.hairColor],
+                ["Eyes", profile.eyeColor],
+                ["Body type", profile.bodyType],
+                ["Bust", profile.bust],
+                ["Height", profile.heightCm ? `${profile.heightCm} cm` : undefined],
+                ["Weight", profile.weightKg ? `${profile.weightKg} kg` : undefined],
+                ["Attention to", profile.attentionTo],
+                ["Place of service", profile.placeOfService],
+              ]
+                .filter((item) => item[1])
+                .map(([label, value]) => (
+                  <div key={label}>
+                    <dt className="text-xs font-bold uppercase tracking-[0.15em] text-muted">
+                      {label}
+                    </dt>
+                    <dd className="mt-2 font-semibold">{value}</dd>
+                  </div>
+                ))}
             </dl>
+            {profile.availabilitySlots?.length ? (
+              <div className="mt-6 flex flex-wrap gap-2">
+                {profile.availabilitySlots.map((slot) => (
+                  <span
+                    key={slot}
+                    className="rounded-full border border-brand/35 bg-brand/10 px-3 py-1.5 text-sm"
+                  >
+                    {slot}
+                  </span>
+                ))}
+              </div>
+            ) : null}
             <div className="mt-9 grid gap-3 sm:grid-cols-2">
               {profile.contactPhone && !profile.isDemo ? (
                 <a
@@ -147,12 +195,20 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
                 </a>
               ) : null}
               {telegramUrl && !profile.isDemo ? (
-                <a href={telegramUrl} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-600 px-6 py-4 font-bold">
+                <a
+                  href={telegramUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-600 px-6 py-4 font-bold"
+                >
                   <Send size={19} /> Telegram
                 </a>
               ) : null}
               {profile.contactEmail && !profile.isDemo ? (
-                <a href={`mailto:${profile.contactEmail}`} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 px-6 py-4 font-bold">
+                <a
+                  href={`mailto:${profile.contactEmail}`}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 px-6 py-4 font-bold"
+                >
                   <Mail size={19} /> Email
                 </a>
               ) : null}

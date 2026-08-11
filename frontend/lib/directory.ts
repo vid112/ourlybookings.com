@@ -7,6 +7,7 @@ export type DirectoryProfile = {
   name: string;
   slug: string;
   age: number;
+  adTitle?: string;
   category: string;
   city: string;
   citySlug: string;
@@ -14,6 +15,17 @@ export type DirectoryProfile = {
   stateSlug: string;
   languages: readonly string[];
   nationality?: string;
+  gender?: string;
+  ethnicity?: string;
+  hairColor?: string;
+  eyeColor?: string;
+  weightKg?: number;
+  heightCm?: number;
+  bodyType?: string;
+  bust?: string;
+  attentionTo?: string;
+  placeOfService?: string;
+  availabilitySlots?: readonly string[];
   shortBio: string;
   fullBio: string;
   availability?: string;
@@ -34,7 +46,19 @@ type ApiProfile = {
   displayName: string;
   slug: string;
   age: number;
+  adTitle?: string;
   nationality?: string;
+  gender?: string;
+  ethnicity?: string;
+  hairColor?: string;
+  eyeColor?: string;
+  weightKg?: number;
+  heightCm?: number;
+  bodyType?: string;
+  bust?: string;
+  attentionTo?: string;
+  placeOfService?: string;
+  availabilitySlots?: string[];
   languages: string[];
   shortIntro: string;
   fullBio?: string;
@@ -46,7 +70,17 @@ type ApiProfile = {
   contactEmail?: string;
   categories: { category: { name: string; slug: string } }[];
   services: { service: { name: string; slug: string } }[];
-  locations: { city: { name: string; slug: string; state: { name: string; slug: string } } }[];
+  locations: {
+    city: {
+      name: string;
+      slug: string;
+      state: {
+        name: string;
+        slug: string;
+        country?: { name: string; slug: string; code: string };
+      };
+    };
+  }[];
   media: {
     role: string;
     media: { secureUrl: string; altText: string; title?: string; resourceType: string };
@@ -61,6 +95,18 @@ export type DirectoryState = {
   summary?: string;
   description?: string;
   cities: readonly { id?: string; name: string; slug: string; description?: string }[];
+};
+
+export type DirectoryOptions = {
+  countries: {
+    id: string;
+    name: string;
+    code: string;
+    slug: string;
+    states: DirectoryState[];
+  }[];
+  categories: { id: string; name: string; slug: string; description?: string; imageUrl?: string }[];
+  services: { id: string; name: string; slug: string }[];
 };
 
 async function publicApi<T>(path: string, fresh = false): Promise<T | null> {
@@ -92,6 +138,7 @@ function fromApi(profile: ApiProfile): DirectoryProfile | null {
     name: profile.displayName,
     slug: profile.slug,
     age: profile.age,
+    adTitle: profile.adTitle,
     category: profile.categories[0]?.category.name ?? "Independent",
     city: location.name,
     citySlug: location.slug,
@@ -99,6 +146,17 @@ function fromApi(profile: ApiProfile): DirectoryProfile | null {
     stateSlug: location.state.slug,
     languages: profile.languages,
     nationality: profile.nationality,
+    gender: profile.gender,
+    ethnicity: profile.ethnicity,
+    hairColor: profile.hairColor,
+    eyeColor: profile.eyeColor,
+    weightKg: profile.weightKg,
+    heightCm: profile.heightCm,
+    bodyType: profile.bodyType,
+    bust: profile.bust,
+    attentionTo: profile.attentionTo,
+    placeOfService: profile.placeOfService,
+    availabilitySlots: profile.availabilitySlots,
     shortBio: profile.shortIntro,
     fullBio: profile.fullBio ?? profile.shortIntro,
     availability: profile.availability,
@@ -139,21 +197,28 @@ function fromDemo(profile: (typeof demoProfiles)[number]): DirectoryProfile {
 }
 
 export async function getDirectoryProfiles(filters?: {
+  q?: string;
+  country?: string;
   state?: string;
   city?: string;
+  area?: string;
   category?: string;
+  service?: string;
+  gender?: string;
+  ethnicity?: string;
+  nationality?: string;
+  bust?: string;
+  hair?: string;
+  bodyType?: string;
+  attentionTo?: string;
+  placeOfService?: string;
 }) {
   const search = new URLSearchParams();
-  if (filters?.state) search.set("state", filters.state);
-  if (filters?.city) search.set("city", filters.city);
-  if (filters?.category) search.set("category", filters.category);
+  Object.entries(filters ?? {}).forEach(([key, value]) => value && search.set(key, value));
   // Moderated listings must become visible as soon as an administrator approves
   // them. Keeping this request out of Next's data cache also makes removals and
   // rejection changes take effect immediately on every directory page.
-  const profiles = await publicApi<ApiProfile[]>(
-    `/public/profiles?${search.toString()}`,
-    true,
-  );
+  const profiles = await publicApi<ApiProfile[]>(`/public/profiles?${search.toString()}`, true);
   if (profiles)
     return profiles.map(fromApi).filter((profile): profile is DirectoryProfile => Boolean(profile));
   return demoProfiles
@@ -166,11 +231,28 @@ export async function getDirectoryProfiles(filters?: {
     .map(fromDemo);
 }
 
-export async function getDirectoryProfile(slug: string) {
-  const profile = await publicApi<ApiProfile>(
-    `/public/profiles/${encodeURIComponent(slug)}`,
+export async function getDirectoryOptions() {
+  return publicApi<DirectoryOptions>("/public/ad-options", true);
+}
+
+export type CategoryLocations = {
+  category: { id: string; name: string; slug: string; description: string; imageUrl?: string };
+  cities: {
+    name: string;
+    slug: string;
+    state: { name: string; slug: string; country: { name: string; slug: string } };
+  }[];
+};
+
+export async function getCategoryLocations(slug: string) {
+  return publicApi<CategoryLocations>(
+    `/public/categories/${encodeURIComponent(slug)}/locations`,
     true,
   );
+}
+
+export async function getDirectoryProfile(slug: string) {
+  const profile = await publicApi<ApiProfile>(`/public/profiles/${encodeURIComponent(slug)}`, true);
   if (profile) return fromApi(profile);
   const demo = getProfile(slug);
   return demo ? fromDemo(demo) : null;

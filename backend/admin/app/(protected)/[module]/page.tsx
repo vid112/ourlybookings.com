@@ -4,6 +4,8 @@ import { adminApi } from "@/lib/api";
 
 const modules = [
   "profiles",
+  "users",
+  "categories",
   "media",
   "locations",
   "seo",
@@ -18,13 +20,23 @@ const moduleCopy: Record<ModuleName, { title: string; description: string }> = {
     title: "Profiles",
     description: "Create, review, publish and archive profiles with verification safeguards.",
   },
+  users: {
+    title: "Advertiser users",
+    description:
+      "See every registered user, verification state, login activity and advertisement they own.",
+  },
+  categories: {
+    title: "Homepage categories",
+    description:
+      "Manage category names, descriptions and the images displayed on the public homepage.",
+  },
   media: {
     title: "Media library",
     description: "Edit image metadata, review provenance and see every active profile usage.",
   },
   locations: {
     title: "Locations",
-    description: "Manage the complete India state and city hierarchy and its publication state.",
+    description: "Manage the global country, region and city hierarchy and its publication state.",
   },
   seo: {
     title: "SEO centre",
@@ -60,6 +72,8 @@ async function loadData(module: ModuleName) {
     return { leads, reports };
   }
   const paths: Record<Exclude<ModuleName, "profiles" | "leads">, string> = {
+    users: "/admin/users",
+    categories: "/admin/categories",
     media: "/admin/media",
     locations: "/admin/locations",
     seo: "/admin/seo",
