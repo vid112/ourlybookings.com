@@ -132,6 +132,91 @@ async function request(path: string, method = "GET", body?: unknown) {
   return payload;
 }
 
+type UploadSignature =
+  | { provider: "local" }
+  | {
+      provider: "cloudinary";
+      uploadUrl: string;
+      apiKey: string;
+      signature: string;
+      timestamp: number;
+      params: Record<string, string | number>;
+    };
+
+async function uploadCategoryImage(file: File, category: CategoryRow) {
+  if (!file.type.startsWith("image/")) throw new Error("Please select an image file.");
+  if (file.size > 8 * 1024 * 1024) throw new Error("Image must be smaller than 8 MB.");
+
+  const signed = (await request("/admin/media/signature", "POST", {
+    resourceType: "image",
+    folder: "pages",
+    publicId: `category-${category.slug}-${Date.now()}`,
+  })) as UploadSignature;
+
+  let imageUrl: string;
+  if (signed.provider === "local") {
+    const form = new FormData();
+    form.set("file", file);
+    form.set("altText", `${category.name} homepage category image`);
+    const response = await fetch(`${apiUrl}/admin/media/local-upload`, {
+      method: "POST",
+      credentials: "include",
+      body: form,
+    });
+    const uploaded = (await response.json().catch(() => null)) as
+      | { secureUrl?: string; message?: string }
+      | null;
+    if (!response.ok || !uploaded?.secureUrl) {
+      throw new Error(uploaded?.message || "Image upload failed.");
+    }
+    imageUrl = uploaded.secureUrl;
+  } else {
+    const form = new FormData();
+    form.set("file", file);
+    form.set("api_key", signed.apiKey);
+    form.set("signature", signed.signature);
+    form.set("timestamp", String(signed.timestamp));
+    Object.entries(signed.params).forEach(([key, value]) => form.set(key, String(value)));
+    const response = await fetch(signed.uploadUrl, { method: "POST", body: form });
+    const uploaded = (await response.json().catch(() => null)) as
+      | {
+          public_id?: string;
+          asset_id?: string;
+          secure_url?: string;
+          format?: string;
+          width?: number;
+          height?: number;
+          bytes?: number;
+          folder?: string;
+          version?: number;
+          signature?: string;
+          error?: { message?: string };
+        }
+      | null;
+    if (!response.ok || !uploaded?.secure_url) {
+      throw new Error(uploaded?.error?.message || "Cloud image upload failed.");
+    }
+    const saved = (await request("/admin/media/complete", "POST", {
+      cloudinaryPublicId: uploaded.public_id,
+      assetId: uploaded.asset_id,
+      secureUrl: uploaded.secure_url,
+      resourceType: "image",
+      format: uploaded.format,
+      width: uploaded.width,
+      height: uploaded.height,
+      bytes: uploaded.bytes,
+      folder: uploaded.folder || "pages",
+      version: String(uploaded.version),
+      signature: uploaded.signature,
+      altText: `${category.name} homepage category image`,
+    })) as { secureUrl?: string };
+    imageUrl = saved.secureUrl || uploaded.secure_url;
+  }
+
+  await request(`/admin/categories/${category.id}`, "PATCH", { imageUrl });
+  return imageUrl;
+}
+
 function useAction() {
   const router = useRouter();
   const [message, setMessage] = useState("");
@@ -909,9 +994,30 @@ function CategoryEditor({ category }: { category: CategoryRow }) {
         />
       ) : (
         <div className="mb-5 grid aspect-[16/8] place-items-center rounded-xl bg-surface-2 text-sm text-muted">
-          Upload an image in Media, then paste its URL below
+          Upload a homepage category image below
         </div>
       )}
+      <label className="mb-5 flex cursor-pointer items-center justify-center rounded-xl border border-dashed border-brand/55 bg-brand/10 px-4 py-3 text-sm font-bold text-brand transition hover:bg-brand/15">
+        {pending ? "Uploading image…" : imageUrl ? "Replace category image" : "Upload category image"}
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="sr-only"
+          disabled={pending}
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (!file) return;
+            run(
+              async () => {
+                const uploadedUrl = await uploadCategoryImage(file, category);
+                setImageUrl(uploadedUrl);
+              },
+              "Category image uploaded and saved.",
+            );
+            event.currentTarget.value = "";
+          }}
+        />
+      </label>
       <label className="block text-sm font-bold">
         Name
         <input
@@ -929,7 +1035,7 @@ function CategoryEditor({ category }: { category: CategoryRow }) {
         />
       </label>
       <label className="mt-4 block text-sm font-bold">
-        Homepage image URL
+        Image URL (filled automatically after upload)
         <input
           value={imageUrl}
           onChange={(event) => setImageUrl(event.target.value)}
