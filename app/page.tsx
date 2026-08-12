@@ -94,8 +94,8 @@ export default async function HomePage() {
       />
       <section className="relative isolate min-h-[760px] overflow-hidden border-b border-white/10">
         <Image
-          src="/images/hero-lounge.png"
-          alt="Fictional adult model in an elegant hotel lounge"
+          src="/images/hero-lounge.png?v=20260812"
+          alt="Premium Ourly Bookings homepage banner"
           fill
           priority
           sizes="100vw"
@@ -260,18 +260,27 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="section-space">
-        <div className="site-container">
+      <section className="section-space relative isolate overflow-hidden border-y border-white/10">
+        <Image
+          src="/images/Background Image.png"
+          alt=""
+          fill
+          sizes="100vw"
+          className="-z-20 object-cover object-center"
+          aria-hidden="true"
+        />
+        <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(5,7,12,0.96),rgba(10,12,18,0.78)_52%,rgba(5,7,12,0.92)),linear-gradient(180deg,rgba(5,7,12,0.50),rgba(5,7,12,0.94))]" />
+        <div className="site-container relative">
           <SectionHeading
             title="Explore popular services"
             description="Service pages use careful, non-misleading language and link only to independently managed profiles."
           />
-          <div className="mt-12 grid border-y border-white/12 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="mt-12 grid overflow-hidden rounded-[24px] border border-white/15 bg-black/35 shadow-2xl shadow-black/30 backdrop-blur-sm sm:grid-cols-2 lg:grid-cols-5">
             {services.map(({ title, icon: Icon }) => (
               <Link
                 key={title}
                 href="/services"
-                className="group flex min-h-44 flex-col justify-between border-b border-white/12 p-6 hover:bg-surface sm:border-r lg:border-b-0"
+                className="group flex min-h-44 flex-col justify-between border-b border-white/12 p-6 transition hover:bg-white/10 sm:border-r lg:border-b-0"
               >
                 <Icon className="text-brand transition group-hover:scale-110" size={30} />
                 <span className="font-display text-lg font-bold">{title}</span>
