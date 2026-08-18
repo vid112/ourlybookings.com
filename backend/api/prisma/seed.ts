@@ -94,22 +94,34 @@ async function main() {
     ),
   );
 
-  const adminEmail = process.env.SEED_ADMIN_EMAIL ?? "admin@example.test";
-  const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? "ChangeMe-Local-Only-2026!";
-  const admin = await prisma.user.upsert({
-    where: { email: adminEmail.toLowerCase() },
-    update: {},
-    create: {
-      email: adminEmail.toLowerCase(),
-      displayName: "Local Super Admin",
-      passwordHash: await hash(adminPassword),
-    },
-  });
-  await prisma.userRole.upsert({
-    where: { userId_roleId: { userId: admin.id, roleId: superAdminRole.id } },
-    update: {},
-    create: { userId: admin.id, roleId: superAdminRole.id },
-  });
+  const configuredAdminEmail = process.env.SEED_ADMIN_EMAIL;
+  const configuredAdminPassword = process.env.SEED_ADMIN_PASSWORD;
+  const shouldCreateDevelopmentAdmin = process.env.NODE_ENV !== "production";
+  const adminEmail = configuredAdminEmail ??
+    (shouldCreateDevelopmentAdmin ? "admin@example.test" : undefined);
+  const adminPassword = configuredAdminPassword ??
+    (shouldCreateDevelopmentAdmin ? "ChangeMe-Local-Only-2026!" : undefined);
+
+  if (adminEmail && adminPassword) {
+    const admin = await prisma.user.upsert({
+      where: { email: adminEmail.toLowerCase() },
+      update: {},
+      create: {
+        email: adminEmail.toLowerCase(),
+        displayName: "Super Admin",
+        passwordHash: await hash(adminPassword),
+      },
+    });
+    await prisma.userRole.upsert({
+      where: { userId_roleId: { userId: admin.id, roleId: superAdminRole.id } },
+      update: {},
+      create: { userId: admin.id, roleId: superAdminRole.id },
+    });
+  } else {
+    console.warn(
+      "Production admin was not seeded. Set SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD to create one.",
+    );
+  }
 
   const india = await prisma.country.upsert({
     where: { code: "IN" },
@@ -269,9 +281,7 @@ async function main() {
     },
   });
 
-  console.info(
-    `Seed complete. Development admin: ${adminEmail}. Override SEED_ADMIN_PASSWORD before shared use.`,
-  );
+  console.info(`Seed complete.${adminEmail ? ` Admin: ${adminEmail}.` : ""}`);
 }
 
 main()
