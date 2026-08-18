@@ -45,4 +45,43 @@ async function makeSchemaEnginesExecutable() {
   }
 }
 
+async function makeEsbuildExecutable() {
+  let packageDirectories;
+
+  try {
+    packageDirectories = await readdir(pnpmStore, { withFileTypes: true });
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+      return;
+    }
+    throw error;
+  }
+
+  const esbuildPackages = packageDirectories.filter(
+    (entry) => entry.isDirectory() && entry.name.startsWith("@esbuild+linux-x64@"),
+  );
+
+  for (const esbuildPackage of esbuildPackages) {
+    const esbuildBinary = path.join(
+      pnpmStore,
+      esbuildPackage.name,
+      "node_modules",
+      "@esbuild",
+      "linux-x64",
+      "bin",
+      "esbuild",
+    );
+
+    try {
+      await chmod(esbuildBinary, 0o755);
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+
 await makeSchemaEnginesExecutable();
+await makeEsbuildExecutable();
