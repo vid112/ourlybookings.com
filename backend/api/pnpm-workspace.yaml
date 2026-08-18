@@ -4,6 +4,6 @@ packages:
 allowBuilds:
   "@prisma/engines": true
   argon2: true
-  esbuild: true
+  esbuild: false
   prisma: true
   unrs-resolver: true
