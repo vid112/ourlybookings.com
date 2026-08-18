@@ -95,26 +95,34 @@ export class AuthController {
   @Post("logout")
   async logout(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
     await this.auth.logout(request.cookies?.ourly_refresh as string | undefined);
-    response.clearCookie("ourly_access", { path: "/" });
-    response.clearCookie("ourly_refresh", { path: "/api/v1/auth" });
+    const domain = this.cookieDomain();
+    response.clearCookie("ourly_access", { path: "/", domain });
+    response.clearCookie("ourly_refresh", { path: "/api/v1/auth", domain });
     return { ok: true };
   }
 
   private writeCookies(response: Response, accessToken: string, refreshToken: string) {
     const secure = this.config.get("NODE_ENV") === "production";
+    const domain = this.cookieDomain();
     response.cookie("ourly_access", accessToken, {
       httpOnly: true,
       secure,
-      sameSite: "strict",
+      sameSite: "lax",
+      domain,
       path: "/",
       maxAge: 15 * 60 * 1000,
     });
     response.cookie("ourly_refresh", refreshToken, {
       httpOnly: true,
       secure,
-      sameSite: "strict",
+      sameSite: "lax",
+      domain,
       path: "/api/v1/auth",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
+  }
+
+  private cookieDomain() {
+    return this.config.get<string>("COOKIE_DOMAIN") || undefined;
   }
 }

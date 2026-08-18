@@ -4,6 +4,7 @@ import {
   IsArray,
   IsEmail,
   IsInt,
+  IsIn,
   IsOptional,
   IsString,
   Max,
@@ -51,4 +52,8 @@ export class AttachMediaDto {
 
 export class SubmitAdvertiserAdDto {
   @IsOptional() @IsString() @MaxLength(2048) turnstileToken?: string;
+  @IsIn(["PRIME", "VIP", "HIGHLIGHT"])
+  promotionPlan: "PRIME" | "VIP" | "HIGHLIGHT";
+  @IsString() paymentProofMediaId: string;
+  @IsOptional() @IsString() @MaxLength(100) paymentReference?: string;
 }

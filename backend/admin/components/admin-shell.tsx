@@ -13,7 +13,7 @@ import {
 import Link from "next/link";
 
 const nav = [
-  [LayoutDashboard, "Dashboard", "/"],
+  [LayoutDashboard, "Dashboard", "/dashboard"],
   [UserRoundCog, "Profiles", "/profiles"],
   [UsersRound, "Users", "/users"],
   [LayoutGrid, "Categories", "/categories"],

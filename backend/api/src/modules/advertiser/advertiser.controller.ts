@@ -22,6 +22,12 @@ import {
   UpdateAdvertiserAdDto,
 } from "./dto/advertiser-ad.dto";
 
+const promotionPlans = {
+  PRIME: { amount: 450, priority: 100 },
+  VIP: { amount: 750, priority: 200 },
+  HIGHLIGHT: { amount: 1000, priority: 300 },
+} as const;
+
 @ApiTags("advertiser")
 @ApiCookieAuth("ourly_access")
 @UseGuards(AuthGuard)
@@ -191,12 +197,34 @@ export class AdvertiserController {
       throw new BadRequestException("Upload at least one image before submitting");
     if (!profile.locations.length || !profile.categories.length)
       throw new BadRequestException("Category and city are required");
+    const paymentProof = await this.prisma.mediaAsset.findFirst({
+      where: {
+        id: dto.paymentProofMediaId,
+        createdById: request.user.id,
+        resourceType: "IMAGE",
+        deletedAt: null,
+      },
+      select: { id: true, secureUrl: true },
+    });
+    if (!paymentProof) throw new BadRequestException("Upload a valid payment screenshot");
+    const plan = promotionPlans[dto.promotionPlan];
     return this.prisma.profile.update({
       where: { id },
       data: {
         moderationStatus: "PENDING",
-        paymentStatus: "NOT_REQUIRED",
-        moderationMessage: "Submitted for admin review",
+        paymentStatus: "PENDING",
+        promotionPlan: dto.promotionPlan,
+        promotionAmount: plan.amount,
+        promotionDurationDays: 3,
+        promotionWindow: "Daily 6 PM–3 PM",
+        paymentProofMediaId: paymentProof.id,
+        paymentProofUrl: paymentProof.secureUrl,
+        paymentReference: dto.paymentReference,
+        paymentSubmittedAt: new Date(),
+        paymentVerifiedAt: null,
+        paymentVerifiedById: null,
+        adminPriority: plan.priority,
+        moderationMessage: "Payment proof submitted. Waiting for admin verification.",
         submittedAt: new Date(),
       },
     });

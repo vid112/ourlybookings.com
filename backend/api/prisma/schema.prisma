@@ -37,6 +37,12 @@ enum PaymentStatus {
   FAILED
 }
 
+enum PromotionPlan {
+  PRIME
+  VIP
+  HIGHLIGHT
+}
+
 enum AccountStatus {
   UNVERIFIED
   ACTIVE
@@ -236,61 +242,73 @@ model Page {
 }
 
 model Profile {
-  id                 String              @id @default(cuid())
-  displayName        String
-  slug               String              @unique
-  status             PublishStatus       @default(DRAFT)
-  verificationStatus VerificationStatus  @default(PENDING)
-  moderationStatus   ModerationStatus    @default(DRAFT)
-  paymentStatus      PaymentStatus       @default(NOT_REQUIRED)
-  ownerId            String?
-  age                Int
-  adTitle            String?
-  gender             String?
-  ethnicity          String?
-  nationality        String?
-  eyeColor           String?
-  hairColor          String?
-  weightKg           Int?
-  heightCm           Int?
-  bodyType           String?
-  bust               String?
-  attentionTo        String?
-  placeOfService     String?
-  availabilitySlots  String[]            @default([])
-  languages          String[]
-  shortIntro         String
-  fullBio            String
-  availability       String?
-  pricingNotes       String?
-  contactPhone       String?
-  contactWhatsapp    String?
-  contactTelegram    String?
-  contactEmail       String?
-  promotionAmount    Int                 @default(0)
-  adminPriority      Int                 @default(0)
-  moderationMessage  String?
-  submittedAt        DateTime?
-  featuredOrder      Int?
-  publishedAt        DateTime?
-  scheduledAt        DateTime?
-  deletedAt          DateTime?
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  categories         ProfileCategory[]
-  services           ProfileService[]
-  locations          ProfileLocation[]
-  media              ProfileMedia[]
-  verification       VerificationRecord?
-  consents           ConsentRecord[]
-  leads              Lead[]
-  analyticsEvents    AnalyticsEvent[]
-  owner              User?               @relation("ProfileOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  id                    String              @id @default(cuid())
+  displayName           String
+  slug                  String              @unique
+  status                PublishStatus       @default(DRAFT)
+  verificationStatus    VerificationStatus  @default(PENDING)
+  moderationStatus      ModerationStatus    @default(DRAFT)
+  paymentStatus         PaymentStatus       @default(NOT_REQUIRED)
+  ownerId               String?
+  age                   Int
+  adTitle               String?
+  gender                String?
+  ethnicity             String?
+  nationality           String?
+  eyeColor              String?
+  hairColor             String?
+  weightKg              Int?
+  heightCm              Int?
+  bodyType              String?
+  bust                  String?
+  attentionTo           String?
+  placeOfService        String?
+  availabilitySlots     String[]            @default([])
+  languages             String[]
+  shortIntro            String
+  fullBio               String
+  availability          String?
+  pricingNotes          String?
+  contactPhone          String?
+  contactWhatsapp       String?
+  contactTelegram       String?
+  contactEmail          String?
+  promotionPlan         PromotionPlan?
+  promotionAmount       Int                 @default(0)
+  promotionDurationDays Int                 @default(3)
+  promotionWindow       String?
+  promotionStartsAt     DateTime?
+  promotionEndsAt       DateTime?
+  paymentProofMediaId   String?
+  paymentProofUrl       String?
+  paymentReference      String?
+  paymentSubmittedAt    DateTime?
+  paymentVerifiedAt     DateTime?
+  paymentVerifiedById   String?
+  adminPriority         Int                 @default(0)
+  moderationMessage     String?
+  submittedAt           DateTime?
+  featuredOrder         Int?
+  publishedAt           DateTime?
+  scheduledAt           DateTime?
+  deletedAt             DateTime?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  categories            ProfileCategory[]
+  services              ProfileService[]
+  locations             ProfileLocation[]
+  media                 ProfileMedia[]
+  verification          VerificationRecord?
+  consents              ConsentRecord[]
+  leads                 Lead[]
+  analyticsEvents       AnalyticsEvent[]
+  owner                 User?               @relation("ProfileOwner", fields: [ownerId], references: [id], onDelete: SetNull)
 
   @@index([status, publishedAt])
   @@index([featuredOrder])
   @@index([moderationStatus, submittedAt])
   @@index([adminPriority, promotionAmount])
+  @@index([paymentStatus, paymentSubmittedAt])
   @@index([ownerId, updatedAt])
   @@index([deletedAt])
   @@index([gender])
@@ -458,9 +476,9 @@ model MediaAsset {
 model ProfileMedia {
   profileId String
   mediaId   String
-  role      String   @default("GALLERY")
-  sortOrder Int      @default(0)
-  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  role      String     @default("GALLERY")
+  sortOrder Int        @default(0)
+  profile   Profile    @relation(fields: [profileId], references: [id], onDelete: Cascade)
   media     MediaAsset @relation(fields: [mediaId], references: [id], onDelete: Restrict)
 
   @@id([profileId, mediaId])
@@ -565,15 +583,15 @@ model Lead {
 }
 
 model VisitorSession {
-  id             String           @id
-  firstSeenAt    DateTime         @default(now())
-  lastSeenAt     DateTime         @default(now())
-  deviceClass    String?
-  browserFamily  String?
-  countryCode    String?
-  cityCoarse     String?
-  consentState   String?
-  expiresAt      DateTime
+  id              String           @id
+  firstSeenAt     DateTime         @default(now())
+  lastSeenAt      DateTime         @default(now())
+  deviceClass     String?
+  browserFamily   String?
+  countryCode     String?
+  cityCoarse      String?
+  consentState    String?
+  expiresAt       DateTime
   analyticsEvents AnalyticsEvent[]
 
   @@index([expiresAt])
@@ -600,17 +618,17 @@ model AnalyticsEvent {
 }
 
 model ContentReport {
-  id          String       @id @default(cuid())
-  status      ReportStatus @default(OPEN)
-  reportedUrl String
-  reason      String
-  details     String
+  id            String       @id @default(cuid())
+  status        ReportStatus @default(OPEN)
+  reportedUrl   String
+  reason        String
+  details       String
   reporterEmail String?
-  priority    Int          @default(0)
-  actionTaken String?
-  closedAt    DateTime?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  priority      Int          @default(0)
+  actionTaken   String?
+  closedAt      DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   @@index([status, priority, createdAt])
 }
@@ -635,18 +653,18 @@ model VerificationRecord {
 }
 
 model ConsentRecord {
-  id             String   @id @default(cuid())
-  profileId      String
-  consentType    String
-  evidenceRef    String
-  grantedAt      DateTime
-  revokedAt      DateTime?
-  reviewedById   String?
-  privateNotes   String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  profile        Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  reviewedBy     User?    @relation("ConsentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  id           String    @id @default(cuid())
+  profileId    String
+  consentType  String
+  evidenceRef  String
+  grantedAt    DateTime
+  revokedAt    DateTime?
+  reviewedById String?
+  privateNotes String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  profile      Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  reviewedBy   User?     @relation("ConsentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
 
   @@index([profileId, consentType, revokedAt])
 }

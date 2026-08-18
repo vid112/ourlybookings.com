@@ -2,7 +2,7 @@
   "name": "ourly-bookings",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "pnpm@11.9.0",
+  "packageManager": "pnpm@11.22.0",
   "scripts": {
     "dev": "pnpm --parallel --filter @ourly/frontend --filter @ourly/api --filter @ourly/admin dev",
     "build": "pnpm -r build",

@@ -3,21 +3,33 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
+  BadgeIndianRupee,
+  Check,
+  ChevronLeft,
+  ChevronRight,
   CircleUserRound,
+  Crown,
   Eye,
   EyeOff,
   FileText,
   LogOut,
   PlusCircle,
+  QrCode,
+  Sparkles,
+  Upload,
   WalletCards,
 } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { TurnstileWidget } from "@/components/turnstile-widget";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
 const supportWhatsapp = process.env.NEXT_PUBLIC_WHATSAPP?.replace(/\D/g, "");
 const supportTelegram = process.env.NEXT_PUBLIC_TELEGRAM;
 const supportEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL;
+const paymentQrUrl = process.env.NEXT_PUBLIC_PAYMENT_QR_URL || "/images/payment-qr.jpeg";
+const paymentUpiId = process.env.NEXT_PUBLIC_PAYMENT_UPI_ID || "7317097363@pthdfc";
+const paymentAccountName =
+  process.env.NEXT_PUBLIC_PAYMENT_ACCOUNT_NAME || "Abhishek Kumar Pandey";
 
 type User = { id: string; email: string; displayName?: string; roles: string[] };
 type Area = { id: string; name: string; slug: string };
@@ -68,6 +80,15 @@ type Ad = {
   status: string;
   moderationStatus: string;
   paymentStatus: string;
+  promotionPlan?: "PRIME" | "VIP" | "HIGHLIGHT";
+  promotionAmount: number;
+  promotionDurationDays: number;
+  promotionWindow?: string;
+  paymentProofMediaId?: string;
+  paymentProofUrl?: string;
+  paymentReference?: string;
+  paymentSubmittedAt?: string;
+  paymentVerifiedAt?: string;
   moderationMessage?: string;
   categories: { category: Category }[];
   services: { service: Service }[];
@@ -197,10 +218,11 @@ export function AdvertiserPortal({ dashboard = false }: { dashboard?: boolean })
       onCancel={editing ? () => setEditing(null) : undefined}
       onSubmit={async (event, turnstileToken) => {
         event.preventDefault();
+        const formElement = event.currentTarget;
         setBusy(true);
         setMessage("");
         try {
-          const form = new FormData(event.currentTarget);
+          const form = new FormData(formElement);
           const optionalNumber = (name: string) => {
             const value = String(form.get(name) ?? "").trim();
             return value ? Number(value) : undefined;
@@ -249,14 +271,27 @@ export function AdvertiserPortal({ dashboard = false }: { dashboard?: boolean })
             .getAll("images")
             .filter((item): item is File => item instanceof File && item.size > 0);
           for (const file of files) await uploadImage(ad.id, file, body.displayName);
+          const paymentProofFile = form.get("paymentProof");
+          let paymentProofMediaId = editing?.paymentProofMediaId;
+          if (paymentProofFile instanceof File && paymentProofFile.size > 0) {
+            const proof = await uploadPaymentProof(ad.id, paymentProofFile);
+            paymentProofMediaId = proof.id;
+          }
+          if (!paymentProofMediaId)
+            throw new Error("Payment screenshot upload karna required hai.");
           await api(`/advertiser/ads/${ad.id}/submit`, {
             method: "POST",
-            body: JSON.stringify({ turnstileToken: turnstileToken || undefined }),
+            body: JSON.stringify({
+              turnstileToken: turnstileToken || undefined,
+              promotionPlan: String(form.get("promotionPlan")),
+              paymentProofMediaId,
+              paymentReference: optionalText("paymentReference"),
+            }),
           });
           await refreshAccount();
-          setMessage("Advertisement admin approval ke liye submit ho gaya hai.");
+          setMessage("Ad aur payment proof admin verification ke liye submit ho gaya hai.");
           setEditing(null);
-          event.currentTarget.reset();
+          formElement.reset();
         } catch (error) {
           setMessage(error instanceof Error ? error.message : "Submission failed");
         } finally {
@@ -376,6 +411,12 @@ function Dashboard({
                       <LightTag>{ad.moderationStatus}</LightTag>
                       <LightTag>{ad.status}</LightTag>
                       <LightTag>Payment: {ad.paymentStatus}</LightTag>
+                      {ad.promotionPlan ? (
+                        <LightTag>
+                          {ad.promotionPlan} · ₹{ad.promotionAmount} / {ad.promotionDurationDays}{" "}
+                          days
+                        </LightTag>
+                      ) : null}
                     </div>
                     {ad.moderationMessage ? (
                       <p className="mt-3 rounded-xl bg-stone-50 p-3 text-sm text-stone-600">
@@ -453,7 +494,7 @@ function Metric({
   );
 }
 
-async function uploadImage(adId: string, file: File, altText: string) {
+async function uploadMedia(adId: string, file: File, altText: string) {
   const signed = await api<
     | { provider: "local" }
     | {
@@ -471,16 +512,11 @@ async function uploadImage(adId: string, file: File, altText: string) {
   if (signed.provider === "local") {
     const localData = new FormData();
     localData.set("file", file);
-    localData.set("altText", `${altText} advertisement image`);
-    const media = await api<{ id: string }>("/admin/media/local-upload", {
+    localData.set("altText", altText);
+    return api<{ id: string }>("/admin/media/local-upload", {
       method: "POST",
       body: localData,
     });
-    await api(`/advertiser/ads/${adId}/media`, {
-      method: "POST",
-      body: JSON.stringify({ mediaId: media.id }),
-    });
-    return;
   }
   const data = new FormData();
   data.set("file", file);
@@ -491,7 +527,7 @@ async function uploadImage(adId: string, file: File, altText: string) {
   const uploadedResponse = await fetch(signed.uploadUrl, { method: "POST", body: data });
   const uploaded = await uploadedResponse.json();
   if (!uploadedResponse.ok) throw new Error(uploaded?.error?.message || "Image upload failed");
-  const media = await api<{ id: string }>("/admin/media/complete", {
+  return api<{ id: string }>("/admin/media/complete", {
     method: "POST",
     body: JSON.stringify({
       cloudinaryPublicId: uploaded.public_id,
@@ -505,13 +541,21 @@ async function uploadImage(adId: string, file: File, altText: string) {
       folder: uploaded.folder,
       version: String(uploaded.version),
       signature: uploaded.signature,
-      altText: `${altText} advertisement image`,
+      altText,
     }),
   });
+}
+
+async function uploadImage(adId: string, file: File, altText: string) {
+  const media = await uploadMedia(adId, file, `${altText} advertisement image`);
   await api(`/advertiser/ads/${adId}/media`, {
     method: "POST",
     body: JSON.stringify({ mediaId: media.id }),
   });
+}
+
+async function uploadPaymentProof(adId: string, file: File) {
+  return uploadMedia(adId, file, "Promotion payment screenshot");
 }
 
 function AuthPanel({ onAuthenticated }: { onAuthenticated: (user: User) => void }) {
@@ -556,15 +600,15 @@ function AuthPanel({ onAuthenticated }: { onAuthenticated: (user: User) => void 
           : "Recover access using your registered email address";
 
   return (
-    <div className="overflow-hidden rounded-[28px] bg-[#f7f4f1] text-[#171717] shadow-2xl">
-      <div className="bg-[linear-gradient(135deg,#b64131,#8f2924)] px-6 py-10 text-center text-white">
+    <div className="mx-auto max-w-3xl overflow-hidden rounded-[28px] border border-[#d64f7b]/65 bg-[radial-gradient(circle_at_top_right,rgba(214,79,123,0.18),transparent_34%),linear-gradient(145deg,#1b171d,#0e0c10)] text-[#f8f3f5] shadow-[0_28px_90px_rgba(0,0,0,0.48)]">
+      <div className="border-b border-[#d64f7b]/45 bg-[linear-gradient(135deg,#2a1720,#151218)] px-6 py-10 text-center text-white">
         <h2 className="font-display text-4xl font-bold">{title}</h2>
         <p className="mt-3 text-white/90">{subtitle}</p>
       </div>
-      <div className="mx-auto max-w-xl p-6 sm:p-10">
-        <div className="rounded-2xl bg-white p-6 shadow-xl shadow-stone-300/40 sm:p-8">
+      <div className="mx-auto max-w-xl p-5 sm:p-9">
+        <div className="rounded-2xl border border-[#d64f7b]/45 bg-[#151219]/95 p-6 shadow-[0_22px_60px_rgba(0,0,0,0.38)] sm:p-8">
           {success ? (
-            <p className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center text-sm text-emerald-800">
+            <p className="mb-5 rounded-xl border border-emerald-400/35 bg-emerald-500/10 p-4 text-center text-sm text-emerald-200">
               {success}
             </p>
           ) : null}
@@ -627,8 +671,8 @@ function AuthPanel({ onAuthenticated }: { onAuthenticated: (user: User) => void 
                   </button>
                 </div>
               </label>
-              <TurnstileWidget action="advertiser_login" onToken={setTurnstileToken} />
-              <label className="flex items-center gap-2 text-sm">
+              <TurnstileWidget action="advertiser_login" theme="dark" onToken={setTurnstileToken} />
+              <label className="flex items-center gap-2 text-sm text-white/70">
                 <input type="checkbox" className="accent-[#b64131]" /> Remember me
               </label>
               <button disabled={busy} className="rust-button min-h-12 disabled:opacity-60">
@@ -637,7 +681,7 @@ function AuthPanel({ onAuthenticated }: { onAuthenticated: (user: User) => void 
               <button
                 type="button"
                 onClick={() => switchView("forgot")}
-                className="text-sm font-semibold text-[#b64131]"
+                className="text-sm font-semibold text-[#f06a91]"
               >
                 Forgot Password?
               </button>
@@ -708,9 +752,9 @@ function AuthPanel({ onAuthenticated }: { onAuthenticated: (user: User) => void 
                 required
               />
               <div className="sm:col-span-2">
-                <TurnstileWidget action="advertiser_register" onToken={setTurnstileToken} />
+                <TurnstileWidget action="advertiser_register" theme="dark" onToken={setTurnstileToken} />
               </div>
-              <label className="flex gap-3 text-sm leading-6 text-stone-600 sm:col-span-2">
+              <label className="flex gap-3 text-sm leading-6 text-white/65 sm:col-span-2">
                 <input
                   type="checkbox"
                   name="termsAccepted"
@@ -759,9 +803,9 @@ function AuthPanel({ onAuthenticated }: { onAuthenticated: (user: User) => void 
                 }
               }}
             >
-              <div className="rounded-xl border border-stone-200 bg-stone-50 p-5 text-center">
-                <p className="text-sm text-stone-500">OTP expires in</p>
-                <p className="mt-2 text-2xl font-bold text-[#c43d3d]">
+              <div className="rounded-xl border border-[#d64f7b]/35 bg-white/[0.04] p-5 text-center">
+                <p className="text-sm text-white/55">OTP expires in</p>
+                <p className="mt-2 text-2xl font-bold text-[#f06a91]">
                   {formatCountdown(countdown)}
                 </p>
               </div>
@@ -775,7 +819,7 @@ function AuthPanel({ onAuthenticated }: { onAuthenticated: (user: User) => void 
                 required
                 placeholder="Enter 6-digit OTP"
               />
-              <p className="rounded-xl border border-blue-300 bg-blue-50 p-4 text-xs leading-5 text-blue-800">
+              <p className="rounded-xl border border-sky-400/30 bg-sky-400/10 p-4 text-xs leading-5 text-sky-200">
                 Email verification is required before login. Mobile verification will be added later
                 without changing your account.
               </p>
@@ -801,7 +845,7 @@ function AuthPanel({ onAuthenticated }: { onAuthenticated: (user: User) => void 
                     setBusy(false);
                   }
                 }}
-                className="mx-auto rounded-xl border border-[#b64131] px-5 py-2.5 text-sm font-semibold text-[#b64131] disabled:opacity-40"
+                className="mx-auto rounded-xl border border-[#d64f7b] bg-white/[0.03] px-5 py-2.5 text-sm font-semibold text-[#f06a91] disabled:opacity-40"
               >
                 {countdown > 540 ? `Resend in ${countdown - 540}s` : "Resend OTP"}
               </button>
@@ -904,7 +948,7 @@ function AuthPanel({ onAuthenticated }: { onAuthenticated: (user: User) => void 
           {message ? <LightNotice>{message}</LightNotice> : null}
           {view === "login" || view === "register" ? (
             <button
-              className="mt-6 w-full text-center text-sm font-semibold text-[#b64131]"
+              className="mt-6 w-full text-center text-sm font-semibold text-[#f06a91]"
               onClick={() => switchView(view === "login" ? "register" : "login")}
             >
               {view === "login"
@@ -913,7 +957,7 @@ function AuthPanel({ onAuthenticated }: { onAuthenticated: (user: User) => void 
             </button>
           ) : (
             <button
-              className="mt-6 w-full text-center text-sm font-semibold text-[#b64131]"
+              className="mt-6 w-full text-center text-sm font-semibold text-[#f06a91]"
               onClick={() => switchView("login")}
             >
               Back to login
@@ -953,8 +997,34 @@ function AdForm({
   const [cityId, setCityId] = useState(existingCityId ?? cities[0]?.id ?? "");
   const areas = cities.find((city) => city.id === cityId)?.areas ?? [];
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
+  const [paymentPreview, setPaymentPreview] = useState(existing?.paymentProofUrl ?? "");
   const [formMessage, setFormMessage] = useState("");
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [selectedPlan, setSelectedPlan] = useState<"PRIME" | "VIP" | "HIGHLIGHT">(
+    existing?.promotionPlan ?? "PRIME",
+  );
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const goToStep = (nextStep: 1 | 2 | 3) => {
+    if (nextStep > step && formRef.current) {
+      const fields = Array.from(
+        formRef.current.querySelectorAll<
+          HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+        >(
+          `[data-wizard-step="${step}"] input, [data-wizard-step="${step}"] select, [data-wizard-step="${step}"] textarea`,
+        ),
+      );
+      const invalid = fields.find((field) => !field.checkValidity());
+      if (invalid) {
+        invalid.reportValidity();
+        return;
+      }
+    }
+    setFormMessage("");
+    setStep(nextStep);
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   const selectedServices = useMemo(
     () => new Set(existing?.services.map((item) => item.service.id) ?? []),
@@ -967,10 +1037,11 @@ function AdForm({
 
   return (
     <form
+      ref={formRef}
       onSubmit={(event) => onSubmit(event, turnstileToken)}
-      className="overflow-hidden rounded-[28px] bg-[#f7f4f1] text-[#171717] shadow-2xl"
+      className="overflow-hidden rounded-[30px] border border-[#d64f7b]/65 bg-[radial-gradient(circle_at_top_right,rgba(214,79,123,0.16),transparent_32%),linear-gradient(145deg,#1b171d,#0f0d11)] text-[#f8f3f5] shadow-[0_28px_90px_rgba(0,0,0,0.48)]"
     >
-      <div className="bg-[linear-gradient(135deg,#b64131,#8f2924)] px-6 py-8 text-center text-white">
+      <div className="border-b border-[#d64f7b]/45 bg-[linear-gradient(135deg,#2b1721,#151218)] px-6 py-8 text-center text-white">
         <h2 className="font-display text-3xl font-bold">
           {existing ? "Edit Your Ad" : "Post Your Ad"}
         </h2>
@@ -979,395 +1050,617 @@ function AdForm({
         </p>
       </div>
       <div className="space-y-8 p-5 sm:p-8">
-        <FormSection title="Category & Location">
-          <label className="sm:col-span-2">
-            <LightLabel>Category *</LightLabel>
-            <select
-              name="categoryId"
-              className={lightFieldClass}
-              defaultValue={existing?.categories[0]?.category.id}
-              required
+        <ol className="grid grid-cols-3 gap-2 rounded-2xl border border-[#d64f7b]/45 bg-black/30 p-2 shadow-[0_12px_30px_rgba(0,0,0,0.3)]">
+          {[
+            [1, "Details"],
+            [2, "Photos"],
+            [3, "Payment"],
+          ].map(([number, label]) => (
+            <li
+              key={number}
+              className={`flex min-w-0 items-center justify-center gap-2 rounded-xl px-2 py-3 text-xs font-bold sm:text-sm ${
+                step === number
+                  ? "bg-[linear-gradient(135deg,#d64f7b,#9d3157)] text-white shadow-lg"
+                  : Number(number) < step
+                    ? "bg-emerald-400/10 text-emerald-300"
+                    : "text-white/50"
+              }`}
             >
-              <option value="">Select Category</option>
-              {options.categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <LightLabel>Country *</LightLabel>
-            <select
-              className={lightFieldClass}
-              value={countryId}
-              onChange={(event) => {
-                const nextCountry = event.target.value;
-                const nextStates =
-                  countries.find((country) => country.id === nextCountry)?.states ?? [];
-                const nextState = nextStates[0];
-                setCountryId(nextCountry);
-                setStateId(nextState?.id ?? "");
-                setCityId(nextState?.cities[0]?.id ?? "");
-              }}
-              required
-            >
-              <option value="">Select Country</option>
-              {countries.map((country) => (
-                <option key={country.id} value={country.id}>
-                  {country.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <LightLabel>State / Region *</LightLabel>
-            <select
-              className={lightFieldClass}
-              value={stateId}
-              onChange={(event) => {
-                const nextStateId = event.target.value;
-                const nextState = availableStates.find((state) => state.id === nextStateId);
-                setStateId(nextStateId);
-                setCityId(nextState?.cities[0]?.id ?? "");
-              }}
-              required
-            >
-              <option value="">Select State / Region</option>
-              {availableStates.map((state) => (
-                <option key={state.id} value={state.id}>
-                  {state.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <LightLabel>City *</LightLabel>
-            <select
-              name="cityId"
-              className={lightFieldClass}
-              value={cityId}
-              onChange={(event) => setCityId(event.target.value)}
-              required
-            >
-              <option value="">Select City</option>
-              {cities.map((city) => (
-                <option key={city.id} value={city.id}>
-                  {city.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <LightLabel>Area</LightLabel>
-            <select name="areaId" className={lightFieldClass} defaultValue={existingAreaId ?? ""}>
-              <option value="">All Areas</option>
-              {areas.map((area) => (
-                <option key={area.id} value={area.id}>
-                  {area.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </FormSection>
+              <span className="grid size-6 shrink-0 place-items-center rounded-full border border-current/30">
+                {Number(number) < step ? <Check size={14} /> : number}
+              </span>
+              <span className="truncate">{label}</span>
+            </li>
+          ))}
+        </ol>
+        <div data-wizard-step="1" className={step === 1 ? "space-y-8" : "hidden"}>
+          <FormSection title="Category & Location">
+            <label className="sm:col-span-2">
+              <LightLabel>Category *</LightLabel>
+              <select
+                name="categoryId"
+                className={lightFieldClass}
+                defaultValue={existing?.categories[0]?.category.id}
+                required
+              >
+                <option value="">Select Category</option>
+                {options.categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <LightLabel>Country *</LightLabel>
+              <select
+                className={lightFieldClass}
+                value={countryId}
+                onChange={(event) => {
+                  const nextCountry = event.target.value;
+                  const nextStates =
+                    countries.find((country) => country.id === nextCountry)?.states ?? [];
+                  const nextState = nextStates[0];
+                  setCountryId(nextCountry);
+                  setStateId(nextState?.id ?? "");
+                  setCityId(nextState?.cities[0]?.id ?? "");
+                }}
+                required
+              >
+                <option value="">Select Country</option>
+                {countries.map((country) => (
+                  <option key={country.id} value={country.id}>
+                    {country.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <LightLabel>State / Region *</LightLabel>
+              <select
+                className={lightFieldClass}
+                value={stateId}
+                onChange={(event) => {
+                  const nextStateId = event.target.value;
+                  const nextState = availableStates.find((state) => state.id === nextStateId);
+                  setStateId(nextStateId);
+                  setCityId(nextState?.cities[0]?.id ?? "");
+                }}
+                required
+              >
+                <option value="">Select State / Region</option>
+                {availableStates.map((state) => (
+                  <option key={state.id} value={state.id}>
+                    {state.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <LightLabel>City *</LightLabel>
+              <select
+                name="cityId"
+                className={lightFieldClass}
+                value={cityId}
+                onChange={(event) => setCityId(event.target.value)}
+                required
+              >
+                <option value="">Select City</option>
+                {cities.map((city) => (
+                  <option key={city.id} value={city.id}>
+                    {city.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <LightLabel>Area</LightLabel>
+              <select name="areaId" className={lightFieldClass} defaultValue={existingAreaId ?? ""}>
+                <option value="">All Areas</option>
+                {areas.map((area) => (
+                  <option key={area.id} value={area.id}>
+                    {area.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </FormSection>
 
-        <div className="rounded-xl border border-amber-400 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
-          <strong>Please note — prohibited:</strong> minors, coercion, trafficking, stolen media,
-          abusive language, third-party contact details, explicit photos or unlawful services.
-        </div>
-
-        <FormSection title="Ad Details">
-          <LightInput
-            name="adTitle"
-            label="Title *"
-            defaultValue={existing?.adTitle}
-            minLength={5}
-            maxLength={100}
-            required
-            placeholder="e.g. Premium independent listing in Mumbai"
-            wrapperClass="sm:col-span-2"
-          />
-          <LightInput
-            name="displayName"
-            label="Model / Display Name *"
-            defaultValue={existing?.displayName}
-            minLength={2}
-            maxLength={100}
-            required
-          />
-          <LightInput
-            name="languages"
-            label="Languages *"
-            defaultValue={existing?.languages.join(", ")}
-            required
-            placeholder="Hindi, English"
-          />
-          <LightTextArea
-            name="shortIntro"
-            label="Short Introduction *"
-            defaultValue={existing?.shortIntro}
-            minLength={20}
-            maxLength={500}
-            rows={3}
-            required
-            wrapperClass="sm:col-span-2"
-          />
-          <LightTextArea
-            name="fullBio"
-            label="Description *"
-            defaultValue={existing?.fullBio}
-            minLength={50}
-            maxLength={10000}
-            rows={7}
-            required
-            wrapperClass="sm:col-span-2"
-            placeholder="Describe your advertisement, availability, boundaries and relevant details"
-          />
-          <LightInput
-            name="pricingNotes"
-            label="Rates / Pricing Notes"
-            defaultValue={existing?.pricingNotes}
-            wrapperClass="sm:col-span-2"
-          />
-        </FormSection>
-
-        <FormSection title="Contact">
-          <LightInput
-            name="contactPhone"
-            label="Phone Number"
-            type="tel"
-            defaultValue={existing?.contactPhone}
-          />
-          <LightInput
-            name="contactWhatsapp"
-            label="WhatsApp Number"
-            type="tel"
-            defaultValue={existing?.contactWhatsapp}
-          />
-          <LightInput
-            name="contactTelegram"
-            label="Telegram Username / Link"
-            defaultValue={existing?.contactTelegram}
-          />
-          <LightInput
-            name="contactEmail"
-            label="Public Contact Email"
-            type="email"
-            defaultValue={existing?.contactEmail}
-          />
-          <p className="text-xs leading-5 text-stone-500 sm:col-span-2">
-            At least one contact method is required. Only entered contact details appear publicly.
-          </p>
-        </FormSection>
-
-        <FormSection title="Personal Details">
-          <label>
-            <LightLabel>Gender</LightLabel>
-            <select name="gender" className={lightFieldClass} defaultValue={existing?.gender ?? ""}>
-              <option value="">Select Gender</option>
-              <option>Woman</option>
-              <option>Man</option>
-              <option>Trans Woman</option>
-              <option>Trans Man</option>
-              <option>Non-binary</option>
-            </select>
-          </label>
-          <LightInput
-            name="age"
-            label="Age *"
-            type="number"
-            min={18}
-            max={99}
-            defaultValue={existing?.age}
-            required
-          />
-          <LightInput name="nationality" label="Nationality" defaultValue={existing?.nationality} />
-          <LightInput name="ethnicity" label="Ethnicity" defaultValue={existing?.ethnicity} />
-          <LightInput name="eyeColor" label="Eye Color" defaultValue={existing?.eyeColor} />
-          <LightInput name="hairColor" label="Hair Color" defaultValue={existing?.hairColor} />
-          <LightInput
-            name="weightKg"
-            label="Weight (kg)"
-            type="number"
-            min={25}
-            max={300}
-            defaultValue={existing?.weightKg}
-          />
-          <LightInput
-            name="heightCm"
-            label="Height (cm)"
-            type="number"
-            min={100}
-            max={250}
-            defaultValue={existing?.heightCm}
-          />
-          <label>
-            <LightLabel>Body Type</LightLabel>
-            <select
-              name="bodyType"
-              className={lightFieldClass}
-              defaultValue={existing?.bodyType ?? ""}
-            >
-              <option value="">Select Body Type</option>
-              <option>Slim</option>
-              <option>Athletic</option>
-              <option>Average</option>
-              <option>Curvy</option>
-              <option>Plus Size</option>
-            </select>
-          </label>
-          <LightInput
-            name="bust"
-            label="Bust"
-            defaultValue={existing?.bust}
-            placeholder="Optional"
-          />
-          <label>
-            <LightLabel>Attention To</LightLabel>
-            <select
-              name="attentionTo"
-              className={lightFieldClass}
-              defaultValue={existing?.attentionTo ?? ""}
-            >
-              <option value="">Select</option>
-              <option>Men</option>
-              <option>Women</option>
-              <option>Couples</option>
-              <option>Everyone</option>
-            </select>
-          </label>
-          <label className="sm:col-span-2">
-            <LightLabel>Place of Service</LightLabel>
-            <select
-              name="placeOfService"
-              className={lightFieldClass}
-              defaultValue={existing?.placeOfService ?? ""}
-            >
-              <option value="">Select</option>
-              <option>Incalls</option>
-              <option>Outcalls</option>
-              <option>Incalls and Outcalls</option>
-              <option>Online</option>
-            </select>
-          </label>
-        </FormSection>
-
-        <FormSection title="Availability">
-          <div className="flex flex-wrap gap-2 sm:col-span-2">
-            {["Morning", "Afternoon", "Evening", "Night", "Overnight", "24 Hours"].map((slot) => (
-              <ChipCheckbox
-                key={slot}
-                name="availabilitySlots"
-                value={slot}
-                defaultChecked={selectedAvailability.has(slot)}
-              />
-            ))}
+          <div className="rounded-xl border border-amber-400/35 bg-amber-400/10 p-4 text-sm leading-6 text-amber-100">
+            <strong>Please note — prohibited:</strong> minors, coercion, trafficking, stolen media,
+            abusive language, third-party contact details, explicit photos or unlawful services.
           </div>
-          <LightInput
-            name="availability"
-            label="Availability Notes"
-            defaultValue={existing?.availability}
-            wrapperClass="sm:col-span-2"
-            placeholder="Add schedule, notice period or special timing"
-          />
-        </FormSection>
 
-        <FormSection title="Services Included">
-          <div className="flex flex-wrap gap-2 sm:col-span-2">
-            {options.services.map((service) => (
-              <ChipCheckbox
-                key={service.id}
-                name="serviceIds"
-                value={service.id}
-                label={service.name}
-                defaultChecked={selectedServices.has(service.id)}
-              />
-            ))}
-          </div>
-        </FormSection>
-
-        <FormSection title="Photos">
-          <label className="block rounded-2xl border border-dashed border-stone-300 bg-white p-8 text-center sm:col-span-2">
-            <span className="text-3xl">📷</span>
-            <span className="mt-2 block font-bold text-[#b64131]">
-              Click to upload or drag and drop
-            </span>
-            <span className="mt-1 block text-xs text-stone-500">
-              PNG, JPG, WEBP — max 8 MB per photo; 1–8 images
-            </span>
-            <input
-              name="images"
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              multiple
-              required={!existing?.media.length}
-              className="sr-only"
-              onChange={(event) => {
-                const files = Array.from(event.target.files ?? []);
-                if (files.length > 8) {
-                  event.target.value = "";
-                  setPhotoPreviews([]);
-                  setFormMessage("Maximum 8 photos upload kar sakte hain.");
-                  return;
-                }
-                if (files.some((file) => file.size > 8 * 1024 * 1024)) {
-                  event.target.value = "";
-                  setPhotoPreviews([]);
-                  setFormMessage("Each photo must be 8 MB or smaller.");
-                  return;
-                }
-                setFormMessage("");
-                setPhotoPreviews(files.map((file) => URL.createObjectURL(file)));
-              }}
+          <FormSection title="Ad Details">
+            <LightInput
+              name="adTitle"
+              label="Title *"
+              defaultValue={existing?.adTitle}
+              minLength={5}
+              maxLength={100}
+              required
+              placeholder="e.g. Premium independent listing in Mumbai"
+              wrapperClass="sm:col-span-2"
             />
-          </label>
-          {existing?.media.length || photoPreviews.length ? (
-            <div className="grid grid-cols-3 gap-3 sm:col-span-2 sm:grid-cols-5">
-              {existing?.media.map((item) => (
-                <Image
-                  key={item.mediaId}
-                  src={item.media.secureUrl}
-                  alt={item.media.altText}
-                  width={150}
-                  height={180}
-                  className="aspect-[4/5] w-full rounded-xl object-cover"
-                />
-              ))}
-              {photoPreviews.map((url) => (
-                <Image
-                  key={url}
-                  src={url}
-                  alt="Selected advertisement preview"
-                  width={150}
-                  height={180}
-                  unoptimized
-                  className="aspect-[4/5] w-full rounded-xl object-cover"
+            <LightInput
+              name="displayName"
+              label="Model / Display Name *"
+              defaultValue={existing?.displayName}
+              minLength={2}
+              maxLength={100}
+              required
+            />
+            <LightInput
+              name="languages"
+              label="Languages *"
+              defaultValue={existing?.languages.join(", ")}
+              required
+              placeholder="Hindi, English"
+            />
+            <LightTextArea
+              name="shortIntro"
+              label="Short Introduction *"
+              defaultValue={existing?.shortIntro}
+              minLength={20}
+              maxLength={500}
+              rows={3}
+              required
+              wrapperClass="sm:col-span-2"
+            />
+            <LightTextArea
+              name="fullBio"
+              label="Description *"
+              defaultValue={existing?.fullBio}
+              minLength={50}
+              maxLength={10000}
+              rows={7}
+              required
+              wrapperClass="sm:col-span-2"
+              placeholder="Describe your advertisement, availability, boundaries and relevant details"
+            />
+            <LightInput
+              name="pricingNotes"
+              label="Rates / Pricing Notes"
+              defaultValue={existing?.pricingNotes}
+              wrapperClass="sm:col-span-2"
+            />
+          </FormSection>
+
+          <FormSection title="Contact">
+            <LightInput
+              name="contactPhone"
+              label="Phone Number"
+              type="tel"
+              defaultValue={existing?.contactPhone}
+            />
+            <LightInput
+              name="contactWhatsapp"
+              label="WhatsApp Number"
+              type="tel"
+              defaultValue={existing?.contactWhatsapp}
+            />
+            <LightInput
+              name="contactTelegram"
+              label="Telegram Username / Link"
+              defaultValue={existing?.contactTelegram}
+            />
+            <LightInput
+              name="contactEmail"
+              label="Public Contact Email"
+              type="email"
+              defaultValue={existing?.contactEmail}
+            />
+            <p className="text-xs leading-5 text-white/50 sm:col-span-2">
+              At least one contact method is required. Only entered contact details appear publicly.
+            </p>
+          </FormSection>
+
+          <FormSection title="Personal Details">
+            <label>
+              <LightLabel>Gender</LightLabel>
+              <select
+                name="gender"
+                className={lightFieldClass}
+                defaultValue={existing?.gender ?? ""}
+              >
+                <option value="">Select Gender</option>
+                <option>Woman</option>
+                <option>Man</option>
+                <option>Trans Woman</option>
+                <option>Trans Man</option>
+                <option>Non-binary</option>
+              </select>
+            </label>
+            <LightInput
+              name="age"
+              label="Age *"
+              type="number"
+              min={18}
+              max={99}
+              defaultValue={existing?.age}
+              required
+            />
+            <LightInput
+              name="nationality"
+              label="Nationality"
+              defaultValue={existing?.nationality}
+            />
+            <LightInput name="ethnicity" label="Ethnicity" defaultValue={existing?.ethnicity} />
+            <LightInput name="eyeColor" label="Eye Color" defaultValue={existing?.eyeColor} />
+            <LightInput name="hairColor" label="Hair Color" defaultValue={existing?.hairColor} />
+            <LightInput
+              name="weightKg"
+              label="Weight (kg)"
+              type="number"
+              min={25}
+              max={300}
+              defaultValue={existing?.weightKg}
+            />
+            <LightInput
+              name="heightCm"
+              label="Height (cm)"
+              type="number"
+              min={100}
+              max={250}
+              defaultValue={existing?.heightCm}
+            />
+            <label>
+              <LightLabel>Body Type</LightLabel>
+              <select
+                name="bodyType"
+                className={lightFieldClass}
+                defaultValue={existing?.bodyType ?? ""}
+              >
+                <option value="">Select Body Type</option>
+                <option>Slim</option>
+                <option>Athletic</option>
+                <option>Average</option>
+                <option>Curvy</option>
+                <option>Plus Size</option>
+              </select>
+            </label>
+            <LightInput
+              name="bust"
+              label="Bust"
+              defaultValue={existing?.bust}
+              placeholder="Optional"
+            />
+            <label>
+              <LightLabel>Attention To</LightLabel>
+              <select
+                name="attentionTo"
+                className={lightFieldClass}
+                defaultValue={existing?.attentionTo ?? ""}
+              >
+                <option value="">Select</option>
+                <option>Men</option>
+                <option>Women</option>
+                <option>Couples</option>
+                <option>Everyone</option>
+              </select>
+            </label>
+            <label className="sm:col-span-2">
+              <LightLabel>Place of Service</LightLabel>
+              <select
+                name="placeOfService"
+                className={lightFieldClass}
+                defaultValue={existing?.placeOfService ?? ""}
+              >
+                <option value="">Select</option>
+                <option>Incalls</option>
+                <option>Outcalls</option>
+                <option>Incalls and Outcalls</option>
+                <option>Online</option>
+              </select>
+            </label>
+          </FormSection>
+
+          <FormSection title="Availability">
+            <div className="flex flex-wrap gap-2 sm:col-span-2">
+              {["Morning", "Afternoon", "Evening", "Night", "Overnight", "24 Hours"].map((slot) => (
+                <ChipCheckbox
+                  key={slot}
+                  name="availabilitySlots"
+                  value={slot}
+                  defaultChecked={selectedAvailability.has(slot)}
                 />
               ))}
             </div>
-          ) : null}
-        </FormSection>
+            <LightInput
+              name="availability"
+              label="Availability Notes"
+              defaultValue={existing?.availability}
+              wrapperClass="sm:col-span-2"
+              placeholder="Add schedule, notice period or special timing"
+            />
+          </FormSection>
 
-        <TurnstileWidget action="advertiser_submit" onToken={setTurnstileToken} />
-        <label className="flex gap-3 rounded-xl border border-stone-200 bg-white p-4 text-sm leading-6 text-stone-600">
-          <input type="checkbox" required className="mt-1 size-4 accent-[#b64131]" />
-          <span>
-            I confirm I am an independent adult service provider, or I am authorized to post on
-            their behalf. I agree to the Terms, Content Policy and Advertiser Guidelines and confirm
-            I own or license every image.
-          </span>
-        </label>
-        {formMessage ? <LightNotice>{formMessage}</LightNotice> : null}
-        {message ? <LightNotice>{message}</LightNotice> : null}
-        <div className="flex flex-wrap gap-3">
-          <button disabled={busy} className="rust-button min-h-12 px-8 disabled:opacity-60">
-            {busy ? "Uploading and submitting…" : "Post Ad for Approval"}
-          </button>
-          {onCancel ? (
-            <button type="button" onClick={onCancel} className="light-outline-button">
-              Cancel
+          <FormSection title="Services Included">
+            <div className="flex flex-wrap gap-2 sm:col-span-2">
+              {options.services.map((service) => (
+                <ChipCheckbox
+                  key={service.id}
+                  name="serviceIds"
+                  value={service.id}
+                  label={service.name}
+                  defaultChecked={selectedServices.has(service.id)}
+                />
+              ))}
+            </div>
+          </FormSection>
+
+          <div className="flex justify-end border-t border-[#d64f7b]/25 pt-6">
+            <button
+              type="button"
+              onClick={() => goToStep(2)}
+              className="rust-button flex min-h-12 items-center gap-2 px-7"
+            >
+              Continue to photos <ChevronRight size={18} />
             </button>
-          ) : null}
+          </div>
+        </div>
+
+        <div data-wizard-step="2" className={step === 2 ? "space-y-8" : "hidden"}>
+          <FormSection title="Photos">
+            <label className="block rounded-2xl border border-dashed border-[#d64f7b]/65 bg-white/[0.035] p-8 text-center transition hover:bg-white/[0.06] sm:col-span-2">
+              <span className="text-3xl">📷</span>
+              <span className="mt-2 block font-bold text-[#f06a91]">
+                Click to upload or drag and drop
+              </span>
+              <span className="mt-1 block text-xs text-white/50">
+                PNG, JPG, WEBP — max 8 MB per photo; 1–8 images
+              </span>
+              <input
+                name="images"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                required={!existing?.media.length}
+                className="sr-only"
+                onChange={(event) => {
+                  const files = Array.from(event.target.files ?? []);
+                  if (files.length > 8) {
+                    event.target.value = "";
+                    setPhotoPreviews([]);
+                    setFormMessage("Maximum 8 photos upload kar sakte hain.");
+                    return;
+                  }
+                  if (files.some((file) => file.size > 8 * 1024 * 1024)) {
+                    event.target.value = "";
+                    setPhotoPreviews([]);
+                    setFormMessage("Each photo must be 8 MB or smaller.");
+                    return;
+                  }
+                  setFormMessage("");
+                  setPhotoPreviews(files.map((file) => URL.createObjectURL(file)));
+                }}
+              />
+            </label>
+            {existing?.media.length || photoPreviews.length ? (
+              <div className="grid grid-cols-3 gap-3 sm:col-span-2 sm:grid-cols-5">
+                {existing?.media.map((item) => (
+                  <Image
+                    key={item.mediaId}
+                    src={item.media.secureUrl}
+                    alt={item.media.altText}
+                    width={150}
+                    height={180}
+                    className="aspect-[4/5] w-full rounded-xl object-cover"
+                  />
+                ))}
+                {photoPreviews.map((url) => (
+                  <Image
+                    key={url}
+                    src={url}
+                    alt="Selected advertisement preview"
+                    width={150}
+                    height={180}
+                    unoptimized
+                    className="aspect-[4/5] w-full rounded-xl object-cover"
+                  />
+                ))}
+              </div>
+            ) : null}
+          </FormSection>
+
+          <label className="flex gap-3 rounded-xl border border-[#d64f7b]/35 bg-white/[0.035] p-4 text-sm leading-6 text-white/65">
+            <input type="checkbox" required className="mt-1 size-4 accent-[#b64131]" />
+            <span>
+              I confirm I am an independent adult service provider, or I am authorized to post on
+              their behalf. I agree to the Terms, Content Policy and Advertiser Guidelines and
+              confirm I own or license every image.
+            </span>
+          </label>
+          {formMessage ? <LightNotice>{formMessage}</LightNotice> : null}
+          <div className="flex flex-wrap justify-between gap-3 border-t border-[#d64f7b]/25 pt-6">
+            <button
+              type="button"
+              onClick={() => goToStep(1)}
+              className={darkOutlineButtonClass}
+            >
+              <ChevronLeft size={18} /> Back
+            </button>
+            <button
+              type="button"
+              onClick={() => goToStep(3)}
+              className="rust-button flex min-h-12 items-center gap-2 px-7"
+            >
+              Continue to payment <ChevronRight size={18} />
+            </button>
+          </div>
+        </div>
+
+        <div data-wizard-step="3" className={step === 3 ? "space-y-8" : "hidden"}>
+          <section className="rounded-3xl border border-[#d64f7b]/65 bg-[#171318] p-5 text-white shadow-xl sm:p-7">
+            <div className="flex items-start gap-3">
+              <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#b64131]">
+                <Crown size={22} />
+              </span>
+              <div>
+                <h3 className="font-display text-2xl font-bold">Choose promotion</h3>
+                <p className="mt-1 text-sm leading-6 text-white/65">
+                  Every plan runs for 3 days with the daily promotion window from 6 PM to 3 PM.
+                </p>
+              </div>
+            </div>
+            <div className="mt-6 grid gap-3 md:grid-cols-3">
+              {(
+                [
+                  { id: "PRIME", name: "Prime", price: "₹450", icon: Sparkles },
+                  { id: "VIP", name: "VIP", price: "₹750", icon: Crown },
+                  { id: "HIGHLIGHT", name: "Highlight", price: "₹1,000+", icon: BadgeIndianRupee },
+                ] as const
+              ).map((plan) => {
+                const Icon = plan.icon;
+                const active = selectedPlan === plan.id;
+                return (
+                  <label
+                    key={plan.id}
+                    className={`cursor-pointer rounded-2xl border p-4 transition ${
+                      active
+                        ? "border-[#f06a91] bg-[#d64f7b]/20 shadow-[0_0_0_2px_rgba(240,106,145,0.16)]"
+                        : "border-[#d64f7b]/30 bg-white/[0.04] hover:border-[#d64f7b]/55"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="promotionPlan"
+                      value={plan.id}
+                      required
+                      checked={active}
+                      onChange={() => setSelectedPlan(plan.id)}
+                      className="sr-only"
+                    />
+                    <span className="flex items-center justify-between gap-3">
+                      <span className="grid size-9 place-items-center rounded-xl bg-white/10 text-[#f1b37b]">
+                        <Icon size={18} />
+                      </span>
+                      {active ? <Check size={18} className="text-emerald-400" /> : null}
+                    </span>
+                    <strong className="mt-4 block text-lg">{plan.name}</strong>
+                    <span className="mt-1 block text-2xl font-black text-[#f1b37b]">
+                      {plan.price}
+                    </span>
+                    <span className="mt-2 block text-xs text-white/55">3 days · 6 PM–3 PM</span>
+                  </label>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="grid gap-5 rounded-3xl border border-[#d64f7b]/55 bg-[#171318]/95 p-5 shadow-[0_20px_55px_rgba(0,0,0,0.35)] sm:p-7 md:grid-cols-[260px_1fr]">
+            <div className="flex min-h-64 items-center justify-center rounded-2xl border border-dashed border-[#d64f7b]/55 bg-white/[0.035] p-4 text-center">
+              {paymentQrUrl ? (
+                // QR URL is merchant-configured and may be hosted outside Next.js image domains.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={paymentQrUrl}
+                  alt={`${paymentAccountName} payment QR code`}
+                  className="mx-auto aspect-square w-full max-w-56 rounded-xl bg-white object-contain p-2 shadow-md"
+                />
+              ) : (
+                <div>
+                  <QrCode className="mx-auto text-[#b64131]" size={82} strokeWidth={1.4} />
+                  <p className="mt-3 text-sm font-bold text-white">
+                    Merchant QR awaiting setup
+                  </p>
+                  <p className="mt-2 text-xs leading-5 text-white/50">
+                    Admin must configure the real payment QR before accepting a payment.
+                  </p>
+                </div>
+              )}
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#f06a91]">
+                Step 3 · Pay and upload proof
+              </p>
+              <h3 className="mt-2 font-display text-2xl font-bold">
+                Pay {selectedPlan.toLowerCase()} plan
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-white/60">
+                Scan the QR, complete payment, then upload a clear screenshot. Admin verifies the
+                payment first and publishes the ad only after content approval.
+              </p>
+              <div className="mt-4 rounded-xl border border-[#d64f7b]/30 bg-white/[0.035] p-4 text-sm text-white/75">
+                <p>
+                  <strong>Account:</strong> {paymentAccountName}
+                </p>
+                {paymentUpiId ? (
+                  <p className="mt-1">
+                    <strong>UPI ID:</strong> {paymentUpiId}
+                  </p>
+                ) : null}
+              </div>
+              <label className="mt-5 block cursor-pointer rounded-2xl border border-dashed border-[#d64f7b]/60 bg-white/[0.035] p-5 text-center transition hover:bg-white/[0.06]">
+                <Upload className="mx-auto text-[#f06a91]" size={28} />
+                <span className="mt-2 block font-bold text-[#f06a91]">
+                  Upload payment screenshot *
+                </span>
+                <span className="mt-1 block text-xs text-white/50">
+                  PNG, JPG or WEBP · max 8 MB
+                </span>
+                <input
+                  name="paymentProof"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  required={!existing?.paymentProofMediaId}
+                  className="sr-only"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (!file) return;
+                    if (file.size > 8 * 1024 * 1024) {
+                      event.target.value = "";
+                      setPaymentPreview(existing?.paymentProofUrl ?? "");
+                      setFormMessage("Payment screenshot must be 8 MB or smaller.");
+                      return;
+                    }
+                    setFormMessage("");
+                    setPaymentPreview(URL.createObjectURL(file));
+                  }}
+                />
+              </label>
+              {paymentPreview ? (
+                // Object URLs and existing payment proof URLs are temporary review previews.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={paymentPreview}
+                  alt="Selected payment screenshot preview"
+                  className="mt-4 max-h-48 w-full rounded-xl border border-[#d64f7b]/35 bg-black/30 object-contain p-2"
+                />
+              ) : null}
+              <label className="mt-5 block">
+                <LightLabel>Payment reference / UTR (optional)</LightLabel>
+                <input
+                  name="paymentReference"
+                  maxLength={100}
+                  defaultValue={existing?.paymentReference}
+                  className={lightFieldClass}
+                  placeholder="Enter UTR or transaction reference"
+                />
+              </label>
+            </div>
+          </section>
+
+          <TurnstileWidget action="advertiser_submit" theme="dark" onToken={setTurnstileToken} />
+          {formMessage ? <LightNotice>{formMessage}</LightNotice> : null}
+          {message ? <LightNotice>{message}</LightNotice> : null}
+          <div className="flex flex-wrap justify-between gap-3 border-t border-[#d64f7b]/25 pt-6">
+            <button
+              type="button"
+              onClick={() => goToStep(2)}
+              className={darkOutlineButtonClass}
+            >
+              <ChevronLeft size={18} /> Back
+            </button>
+            <button disabled={busy} className="rust-button min-h-12 px-8 disabled:opacity-60">
+              {busy ? "Uploading and submitting…" : "Submit Payment & Ad"}
+            </button>
+            {onCancel ? (
+              <button type="button" onClick={onCancel} className={darkOutlineButtonClass}>
+                Cancel
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
     </form>
@@ -1376,8 +1669,8 @@ function AdForm({
 
 function FormSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <fieldset className="grid gap-5 border-t border-stone-200 pt-6 sm:grid-cols-2">
-      <legend className="mb-5 block w-full text-sm font-bold uppercase tracking-[0.08em] text-[#b64131]">
+    <fieldset className="grid gap-5 border-t border-[#d64f7b]/25 pt-6 sm:grid-cols-2">
+      <legend className="mb-5 block w-full text-sm font-bold uppercase tracking-[0.08em] text-[#f06a91]">
         {title}
       </legend>
       {children}
@@ -1405,7 +1698,7 @@ function ChipCheckbox({
         defaultChecked={defaultChecked}
         className="peer sr-only"
       />
-      <span className="inline-flex rounded-full border border-stone-300 bg-white px-4 py-2 text-sm peer-checked:border-[#b64131] peer-checked:bg-[#b64131] peer-checked:text-white">
+      <span className="inline-flex rounded-full border border-[#d64f7b]/40 bg-white/[0.035] px-4 py-2 text-sm text-white/70 transition peer-checked:border-[#f06a91] peer-checked:bg-[#d64f7b] peer-checked:text-white">
         {label}
       </span>
     </label>
@@ -1457,10 +1750,12 @@ function maskEmail(email: string) {
 function formatCountdown(seconds: number) {
   return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 }
+const darkOutlineButtonClass =
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#d64f7b]/65 bg-white/[0.035] px-4 py-2.5 font-bold text-[#f4b0c4] transition hover:bg-white/[0.08]";
 const lightFieldClass =
-  "min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 text-[#171717] placeholder:text-stone-400";
+  "min-h-12 w-full rounded-xl border border-[#d64f7b]/45 bg-[#201b22] px-4 text-[#fff7fa] outline-none [color-scheme:dark] placeholder:text-white/35 transition focus:border-[#f06a91] focus:ring-2 focus:ring-[#d64f7b]/20";
 function LightLabel({ children }: { children: React.ReactNode }) {
-  return <span className="mb-2 block text-sm font-bold">{children}</span>;
+  return <span className="mb-2 block text-sm font-bold text-[#f4dbe3]">{children}</span>;
 }
 function LightInput({
   label,

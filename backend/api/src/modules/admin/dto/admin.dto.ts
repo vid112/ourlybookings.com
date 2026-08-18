@@ -175,6 +175,16 @@ export class ModerateProfileDto {
   paymentStatus?: "NOT_REQUIRED" | "PENDING" | "PAID" | "FAILED";
 }
 
+export class VerifyPaymentDto {
+  @IsIn(["PAID", "FAILED"])
+  status: "PAID" | "FAILED";
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  message?: string;
+}
+
 export class RankProfileDto {
   @Type(() => Number)
   @IsInt()

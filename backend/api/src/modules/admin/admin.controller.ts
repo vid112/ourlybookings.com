@@ -30,6 +30,7 @@ import {
   UpdateCategoryDto,
   ModerateProfileDto,
   RankProfileDto,
+  VerifyPaymentDto,
 } from "./dto/admin.dto";
 import { CreateProfileDto, UpdateProfileDto } from "./dto/profile.dto";
 
@@ -212,6 +213,10 @@ export class AdminController {
       throw new BadRequestException("At least one licensed media asset is required");
     if (!profile.locations.length)
       throw new BadRequestException("At least one location is required");
+    if (profile.submittedAt && profile.moderationStatus !== "APPROVED")
+      throw new BadRequestException("Submitted advertisements must use the approval action");
+    if (profile.promotionPlan && profile.paymentStatus !== "PAID")
+      throw new BadRequestException("Verify the promotion payment before publication");
     return this.prisma.profile.update({
       where: { id },
       data: { status: "PUBLISHED", publishedAt: new Date() },
@@ -231,6 +236,11 @@ export class AdminController {
     if (dto.decision === "APPROVED") {
       if (!profile.media.length) throw new BadRequestException("At least one image is required");
       if (!profile.locations.length) throw new BadRequestException("A primary city is required");
+      if (profile.promotionPlan && profile.paymentStatus !== "PAID") {
+        throw new BadRequestException("Verify the promotion payment before approval");
+      }
+      const promotionStartsAt = profile.promotionPlan ? promotionStart() : null;
+      const promotionEndsAt = promotionStartsAt ? promotionEnd(promotionStartsAt) : null;
       await this.prisma.$transaction([
         this.prisma.verificationRecord.upsert({
           where: { profileId: id },
@@ -264,10 +274,14 @@ export class AdminController {
           data: {
             moderationStatus: "APPROVED",
             verificationStatus: "VERIFIED",
-            paymentStatus: dto.paymentStatus ?? "NOT_REQUIRED",
+            paymentStatus: profile.promotionPlan
+              ? profile.paymentStatus
+              : (dto.paymentStatus ?? "NOT_REQUIRED"),
             moderationMessage: dto.message ?? "Approved by administrator",
             status: "PUBLISHED",
             publishedAt: new Date(),
+            promotionStartsAt,
+            promotionEndsAt,
           },
         }),
       ]);
@@ -289,6 +303,31 @@ export class AdminController {
       });
     }
     return this.prisma.profile.findUniqueOrThrow({ where: { id } });
+  }
+
+  @Post("profiles/:id/payment")
+  async verifyPayment(
+    @Param("id") id: string,
+    @Body() dto: VerifyPaymentDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    const profile = await this.prisma.profile.findUniqueOrThrow({ where: { id } });
+    if (!profile.promotionPlan || !profile.paymentProofUrl) {
+      throw new BadRequestException("Payment plan and proof are required");
+    }
+    return this.prisma.profile.update({
+      where: { id },
+      data: {
+        paymentStatus: dto.status,
+        paymentVerifiedAt: dto.status === "PAID" ? new Date() : null,
+        paymentVerifiedById: dto.status === "PAID" ? request.user.id : null,
+        moderationMessage:
+          dto.message ??
+          (dto.status === "PAID"
+            ? "Payment verified. Advertisement is ready for content approval."
+            : "Payment proof could not be verified. Upload a valid screenshot."),
+      },
+    });
   }
 
   @Patch("profiles/:id/rank")
@@ -481,4 +520,12 @@ export function normalizeSlug(value: string) {
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
+}
+
+function promotionStart() {
+  return new Date();
+}
+
+function promotionEnd(start: Date) {
+  return new Date(start.getTime() + 3 * 24 * 60 * 60 * 1000);
 }

@@ -32,7 +32,14 @@ type Profile = {
   verificationStatus: string;
   moderationStatus: string;
   paymentStatus: string;
+  promotionPlan?: "PRIME" | "VIP" | "HIGHLIGHT";
   promotionAmount: number;
+  promotionDurationDays: number;
+  promotionWindow?: string;
+  paymentProofUrl?: string;
+  paymentReference?: string;
+  paymentSubmittedAt?: string;
+  paymentVerifiedAt?: string;
   adminPriority: number;
   moderationMessage?: string;
   owner?: { email: string; displayName: string };
@@ -163,9 +170,10 @@ async function uploadCategoryImage(file: File, category: CategoryRow) {
       credentials: "include",
       body: form,
     });
-    const uploaded = (await response.json().catch(() => null)) as
-      | { secureUrl?: string; message?: string }
-      | null;
+    const uploaded = (await response.json().catch(() => null)) as {
+      secureUrl?: string;
+      message?: string;
+    } | null;
     if (!response.ok || !uploaded?.secureUrl) {
       throw new Error(uploaded?.message || "Image upload failed.");
     }
@@ -178,21 +186,19 @@ async function uploadCategoryImage(file: File, category: CategoryRow) {
     form.set("timestamp", String(signed.timestamp));
     Object.entries(signed.params).forEach(([key, value]) => form.set(key, String(value)));
     const response = await fetch(signed.uploadUrl, { method: "POST", body: form });
-    const uploaded = (await response.json().catch(() => null)) as
-      | {
-          public_id?: string;
-          asset_id?: string;
-          secure_url?: string;
-          format?: string;
-          width?: number;
-          height?: number;
-          bytes?: number;
-          folder?: string;
-          version?: number;
-          signature?: string;
-          error?: { message?: string };
-        }
-      | null;
+    const uploaded = (await response.json().catch(() => null)) as {
+      public_id?: string;
+      asset_id?: string;
+      secure_url?: string;
+      format?: string;
+      width?: number;
+      height?: number;
+      bytes?: number;
+      folder?: string;
+      version?: number;
+      signature?: string;
+      error?: { message?: string };
+    } | null;
     if (!response.ok || !uploaded?.secure_url) {
       throw new Error(uploaded?.error?.message || "Cloud image upload failed.");
     }
@@ -327,25 +333,99 @@ function ProfilesModule({ data }: { data: unknown }) {
                     Payment: {profile.paymentStatus}
                   </span>
                   <span className="rounded-full bg-white/8 px-2.5 py-1">
-                    ₹{profile.promotionAmount} · Priority {profile.adminPriority}
+                    {profile.promotionPlan ?? "No plan"} · ₹{profile.promotionAmount} · Priority{" "}
+                    {profile.adminPriority}
                   </span>
                 </div>
+                {profile.promotionPlan ? (
+                  <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3 text-xs leading-5 text-muted">
+                    <p>
+                      <strong className="text-white">Promotion:</strong>{" "}
+                      {profile.promotionDurationDays} days ·{" "}
+                      {profile.promotionWindow ?? "Daily 6 PM–3 PM"}
+                    </p>
+                    {profile.paymentReference ? <p>Reference: {profile.paymentReference}</p> : null}
+                    {profile.paymentProofUrl ? (
+                      <a
+                        href={profile.paymentProofUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 inline-flex items-center gap-3 font-bold text-brand"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={profile.paymentProofUrl}
+                          alt="Advertiser payment screenshot"
+                          className="h-16 w-20 rounded-lg bg-white object-contain"
+                        />
+                        Open payment proof
+                      </a>
+                    ) : (
+                      <p className="mt-1 text-amber-200">Payment proof missing</p>
+                    )}
+                  </div>
+                ) : null}
                 {profile.moderationMessage ? (
                   <p className="mt-2 text-xs text-muted">Message: {profile.moderationMessage}</p>
                 ) : null}
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
+                {profile.promotionPlan &&
+                profile.paymentStatus === "PENDING" &&
+                profile.paymentProofUrl ? (
+                  <>
+                    <button
+                      disabled={pending}
+                      onClick={() =>
+                        run(
+                          () =>
+                            request(`/admin/profiles/${profile.id}/payment`, "POST", {
+                              status: "PAID",
+                              message:
+                                "Payment verified. Advertisement is ready for content approval.",
+                            }),
+                          "Payment verified.",
+                        )
+                      }
+                      className="rounded-lg bg-sky-600 px-3 py-2 text-sm font-bold disabled:opacity-50"
+                    >
+                      Verify payment
+                    </button>
+                    <button
+                      disabled={pending}
+                      onClick={() => {
+                        const reason = window.prompt(
+                          "Reason payment could not be verified",
+                          "Payment proof could not be verified. Upload a clear, valid screenshot.",
+                        );
+                        if (reason)
+                          run(
+                            () =>
+                              request(`/admin/profiles/${profile.id}/payment`, "POST", {
+                                status: "FAILED",
+                                message: reason,
+                              }),
+                            "Payment marked as failed.",
+                          );
+                      }}
+                      className="rounded-lg border border-red-400/50 px-3 py-2 text-sm font-bold text-red-200 disabled:opacity-50"
+                    >
+                      Payment failed
+                    </button>
+                  </>
+                ) : null}
                 {profile.moderationStatus === "PENDING" ||
                 profile.moderationStatus === "CHANGES_REQUESTED" ||
                 profile.moderationStatus === "REJECTED" ? (
                   <button
-                    disabled={pending}
+                    disabled={
+                      pending || Boolean(profile.promotionPlan && profile.paymentStatus !== "PAID")
+                    }
                     onClick={() =>
                       run(
                         () =>
                           request(`/admin/profiles/${profile.id}/moderate`, "POST", {
                             decision: "APPROVED",
-                            paymentStatus: "PAID",
                             message: "Approved and published",
                           }),
                         "Advertisement approved and published.",
@@ -353,7 +433,7 @@ function ProfilesModule({ data }: { data: unknown }) {
                     }
                     className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold disabled:opacity-50"
                   >
-                    Approve
+                    Approve & publish
                   </button>
                 ) : null}
                 {profile.moderationStatus === "PENDING" ? (
@@ -406,7 +486,7 @@ function ProfilesModule({ data }: { data: unknown }) {
                 >
                   Rank
                 </button>
-                {profile.status !== "PUBLISHED" ? (
+                {profile.status !== "PUBLISHED" && !profile.promotionPlan ? (
                   <button
                     disabled={pending}
                     onClick={() =>
@@ -998,7 +1078,11 @@ function CategoryEditor({ category }: { category: CategoryRow }) {
         </div>
       )}
       <label className="mb-5 flex cursor-pointer items-center justify-center rounded-xl border border-dashed border-brand/55 bg-brand/10 px-4 py-3 text-sm font-bold text-brand transition hover:bg-brand/15">
-        {pending ? "Uploading image…" : imageUrl ? "Replace category image" : "Upload category image"}
+        {pending
+          ? "Uploading image…"
+          : imageUrl
+            ? "Replace category image"
+            : "Upload category image"}
         <input
           type="file"
           accept="image/jpeg,image/png,image/webp"
@@ -1007,13 +1091,10 @@ function CategoryEditor({ category }: { category: CategoryRow }) {
           onChange={(event) => {
             const file = event.target.files?.[0];
             if (!file) return;
-            run(
-              async () => {
-                const uploadedUrl = await uploadCategoryImage(file, category);
-                setImageUrl(uploadedUrl);
-              },
-              "Category image uploaded and saved.",
-            );
+            run(async () => {
+              const uploadedUrl = await uploadCategoryImage(file, category);
+              setImageUrl(uploadedUrl);
+            }, "Category image uploaded and saved.");
             event.currentTarget.value = "";
           }}
         />

@@ -122,6 +122,7 @@ export class PublicController {
 
   @Get("home")
   async home() {
+    await this.expirePromotions();
     const [profiles, states, posts] = await Promise.all([
       this.prisma.profile.findMany({
         where: { status: "PUBLISHED", moderationStatus: "APPROVED", deletedAt: null },
@@ -163,6 +164,7 @@ export class PublicController {
     @Query("attentionTo") attentionTo?: string,
     @Query("placeOfService") placeOfService?: string,
   ) {
+    await this.expirePromotions();
     return this.prisma.profile.findMany({
       where: {
         status: "PUBLISHED",
@@ -242,6 +244,13 @@ export class PublicController {
           select: { id: true, name: true, slug: true, description: true },
         },
       },
+    });
+  }
+
+  private expirePromotions() {
+    return this.prisma.profile.updateMany({
+      where: { promotionEndsAt: { lt: new Date() }, adminPriority: { gt: 0 } },
+      data: { adminPriority: 0 },
     });
   }
 
