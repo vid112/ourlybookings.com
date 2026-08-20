@@ -1,6 +1,6 @@
 packages:
   - frontend
-  - backend/api
+  - api
   - backend/admin
   - packages/*
 

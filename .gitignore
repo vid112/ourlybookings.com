@@ -10,9 +10,9 @@ coverage/
 *.tsbuildinfo
 .DS_Store
 Thumbs.db
-backend/api/prisma/dev.db
-backend/api/uploads/
-backend/api/src/generated/prisma/
+api/prisma/dev.db
+api/uploads/
+api/src/generated/prisma/
 .codex-docx-render/
 .codex-docx-assets-v1/
 .codex-docx.zip
