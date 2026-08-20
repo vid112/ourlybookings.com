@@ -5,7 +5,6 @@ import {
   HttpException,
   HttpStatus,
   Injectable,
-  Logger,
   UnauthorizedException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
@@ -40,8 +39,6 @@ type LoginUser = {
 
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
@@ -323,18 +320,10 @@ export class AuthService {
       },
     });
     if (recordLogin) {
-      // Hostinger's proxy has a tight response deadline. These writes are not
-      // needed to authenticate the current request, so finish them immediately
-      // after the response path is released instead of delaying the login.
-      void Promise.all([
+      await Promise.all([
         createRefreshToken,
         this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } }),
-      ]).catch((error: unknown) => {
-        this.logger.error(
-          "Failed to persist login session metadata",
-          error instanceof Error ? error.stack : undefined,
-        );
-      });
+      ]);
     } else {
       await createRefreshToken;
     }
