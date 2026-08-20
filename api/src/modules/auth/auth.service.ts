@@ -10,10 +10,32 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { hash, verify } from "argon2";
-import { randomInt, randomUUID } from "crypto";
+import { createHash, randomInt, randomUUID, timingSafeEqual } from "crypto";
 import { PrismaService } from "../../prisma/prisma.service";
 import type { RefreshPayload } from "./auth.types";
 import { OtpMailerService } from "./otp-mailer.service";
+
+const refreshTokenDigest = (token: string) => createHash("sha256").update(token).digest("hex");
+
+const verifyRefreshToken = async (storedHash: string, token: string) => {
+  // Tokens issued before the SHA-256 migration used Argon2. Keep them valid
+  // until their normal seven-day expiry, while avoiding Argon2 for new tokens.
+  if (storedHash.startsWith("$argon2")) return verify(storedHash, token);
+
+  const actual = Buffer.from(refreshTokenDigest(token), "hex");
+  const expected = Buffer.from(storedHash, "hex");
+  return actual.length === expected.length && timingSafeEqual(actual, expected);
+};
+
+type LoginUser = {
+  id: string;
+  email: string;
+  displayName: string;
+  passwordHash: string;
+  isActive: boolean;
+  accountStatus: "ACTIVE" | "UNVERIFIED" | "BLOCKED";
+  roles: string[];
+};
 
 @Injectable()
 export class AuthService {
@@ -120,10 +142,23 @@ export class AuthService {
   }
 
   async login(email: string, password: string, userAgent?: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
-      include: { roles: { include: { role: true } } },
-    });
+    const normalizedEmail = email.trim().toLowerCase();
+    const [user] = await this.prisma.$queryRaw<LoginUser[]>`
+      SELECT
+        u.id,
+        u.email,
+        u."displayName",
+        u."passwordHash",
+        u."isActive",
+        u."accountStatus",
+        COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL), ARRAY[]::text[]) AS roles
+      FROM "User" u
+      LEFT JOIN "UserRole" ur ON ur."userId" = u.id
+      LEFT JOIN "Role" r ON r.id = ur."roleId"
+      WHERE u.email = ${normalizedEmail}
+      GROUP BY u.id
+      LIMIT 1
+    `;
     if (
       !user ||
       !user.isActive ||
@@ -135,12 +170,7 @@ export class AuthService {
     if (user.accountStatus === "UNVERIFIED") {
       throw new ForbiddenException("Email verification is required before login");
     }
-    await this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-    return this.createSession(
-      user,
-      user.roles.map(({ role }) => role.name),
-      userAgent,
-    );
+    return this.createSession(user, user.roles, userAgent, true);
   }
 
   async refresh(refreshToken: string, userAgent?: string) {
@@ -157,7 +187,7 @@ export class AuthService {
       !stored ||
       stored.revokedAt ||
       stored.expiresAt <= new Date() ||
-      !(await verify(stored.tokenHash, refreshToken))
+      !(await verifyRefreshToken(stored.tokenHash, refreshToken))
     ) {
       throw new UnauthorizedException("Refresh token cannot be reused");
     }
@@ -173,6 +203,7 @@ export class AuthService {
       user,
       user.roles.map(({ role }) => role.name),
       userAgent,
+      false,
       payload.familyId,
       nextId,
     );
@@ -266,6 +297,7 @@ export class AuthService {
     user: { id: string; email: string; displayName: string },
     roles: string[],
     userAgent?: string,
+    recordLogin = false,
     familyId: string = randomUUID(),
     tokenId: string = randomUUID(),
   ) {
@@ -277,16 +309,24 @@ export class AuthService {
       { sub: user.id, jti: tokenId, familyId, type: "refresh" },
       { secret: this.config.getOrThrow<string>("JWT_REFRESH_SECRET"), expiresIn: 7 * 24 * 60 * 60 },
     );
-    await this.prisma.refreshToken.create({
+    const createRefreshToken = this.prisma.refreshToken.create({
       data: {
         id: tokenId,
         userId: user.id,
-        tokenHash: await hash(refreshToken),
+        tokenHash: refreshTokenDigest(refreshToken),
         familyId,
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         userAgent: userAgent?.slice(0, 500),
       },
     });
+    if (recordLogin) {
+      await Promise.all([
+        createRefreshToken,
+        this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } }),
+      ]);
+    } else {
+      await createRefreshToken;
+    }
     return {
       accessToken,
       refreshToken,
