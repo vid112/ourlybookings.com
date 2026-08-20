@@ -5,14 +5,14 @@ Production-oriented India-only adult classifieds directory foundation built from
 ## Applications
 
 - `frontend` — public Next.js App Router website with server-rendered India, state, city and profile routes.
-- `backend/api` — NestJS REST API with Prisma/PostgreSQL, authentication, leads, analytics, reporting and Cloudinary signatures.
-- `backend/admin` — separate protected Next.js admin application foundation.
+- `api` — NestJS REST API with Prisma/PostgreSQL, authentication, leads, analytics, reporting and Cloudinary signatures.
+- `admin` — separate protected Next.js admin application foundation.
 
 All included profiles and images are fictional demo content. Replace them only with licensed media for verified adults who have consented to publication.
 
 ## Local setup
 
-1. Copy `backend/api/.env.example` to `backend/api/.env` and `frontend/.env.example` to `frontend/.env.local`; replace every secret. Cloudinary can remain blank locally because development uploads are stored in `backend/api/uploads`; configure Cloudinary before production deployment.
+1. Copy `api/.env.example` to `api/.env` and `frontend/.env.example` to `frontend/.env.local`; replace every secret. Cloudinary can remain blank locally because development uploads are stored in `api/uploads`; configure Cloudinary before production deployment.
 2. Start PostgreSQL and Redis: `docker compose up -d`.
 3. Install dependencies: `pnpm install`.
 4. Generate Prisma Client: `pnpm db:generate`.
@@ -20,7 +20,7 @@ All included profiles and images are fictional demo content. Replace them only w
 6. Seed safe demo content: `pnpm db:seed`.
 7. Run all applications: `pnpm dev`.
 
-The API reads `backend/api/.env` first and falls back to the repository-root `.env`, so either local setup works without duplicating secrets.
+The API reads `api/.env` first and falls back to the repository-root `.env`, so either local setup works without duplicating secrets.
 
 ### Image uploads
 
@@ -28,7 +28,7 @@ Development uses authenticated local uploads when all three Cloudinary values ar
 
 ### Gmail OTP setup
 
-Advertiser registration and password reset use email OTP. Enable 2-Step Verification on the sender Google account, create a dedicated Google App Password, and set these values in `backend/api/.env`:
+Advertiser registration and password reset use email OTP. Enable 2-Step Verification on the sender Google account, create a dedicated Google App Password, and set these values in `api/.env`:
 
 ```env
 SMTP_HOST=smtp.gmail.com

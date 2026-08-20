@@ -15,7 +15,7 @@ import { AdvertiserModule } from "./modules/advertiser/advertiser.module";
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: [".env", "../../.env"],
+      envFilePath: [".env", "../.env"],
       validate: validateEnvironment,
     }),
     ThrottlerModule.forRoot({ throttlers: [{ ttl: minutes(1), limit: 100 }] }),
