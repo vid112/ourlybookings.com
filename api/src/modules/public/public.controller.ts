@@ -32,7 +32,8 @@ export class PublicController {
   }
 
   @Get("ad-options")
-  async adOptions() {
+  async adOptions(@Res({ passthrough: true }) response: Response) {
+    response.setHeader("Cache-Control", "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400");
     const [countries, categories, services] = await Promise.all([
       this.prisma.country.findMany({
         orderBy: { name: "asc" },

@@ -57,11 +57,7 @@ export function TurnstileWidget({
   }, [action, loaded, siteKey, theme]);
 
   if (!siteKey) {
-    return (
-      <p className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-xs text-amber-700 dark:text-amber-200">
-        Cloudflare Turnstile is bypassed in local development. Add the site key before production.
-      </p>
-    );
+    return null;
   }
 
   return (
