@@ -21,6 +21,16 @@ const nextConfig: NextConfig = {
     ],
   },
   turbopack: { root: turbopackRoot },
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.ourlybookings.com" }],
+        destination: "https://ourlybookings.com/:path*",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {
