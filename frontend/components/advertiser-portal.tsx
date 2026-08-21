@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { TurnstileWidget } from "@/components/turnstile-widget";
+import { GoogleSignInButton } from "@/components/google-sign-in-button";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
 const supportWhatsapp = process.env.NEXT_PUBLIC_WHATSAPP?.replace(/\D/g, "");
@@ -28,8 +29,7 @@ const supportTelegram = process.env.NEXT_PUBLIC_TELEGRAM;
 const supportEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL;
 const paymentQrUrl = process.env.NEXT_PUBLIC_PAYMENT_QR_URL || "/images/payment-qr.jpeg";
 const paymentUpiId = process.env.NEXT_PUBLIC_PAYMENT_UPI_ID || "7317097363@pthdfc";
-const paymentAccountName =
-  process.env.NEXT_PUBLIC_PAYMENT_ACCOUNT_NAME || "Abhishek Kumar Pandey";
+const paymentAccountName = process.env.NEXT_PUBLIC_PAYMENT_ACCOUNT_NAME || "Abhishek Kumar Pandey";
 
 type User = { id: string; email: string; displayName?: string; roles: string[] };
 type Area = { id: string; name: string; slug: string };
@@ -567,6 +567,7 @@ function AuthPanel({ onAuthenticated }: { onAuthenticated: (user: User) => void 
   const [countdown, setCountdown] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [googleConsent, setGoogleConsent] = useState(false);
 
   useEffect(() => {
     if (!countdown) return;
@@ -685,6 +686,47 @@ function AuthPanel({ onAuthenticated }: { onAuthenticated: (user: User) => void 
               >
                 Forgot Password?
               </button>
+              <div className="flex items-center gap-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-white/40">
+                <span className="h-px flex-1 bg-white/15" />
+                or
+                <span className="h-px flex-1 bg-white/15" />
+              </div>
+              <label className="flex gap-3 text-sm leading-6 text-white/65">
+                <input
+                  type="checkbox"
+                  checked={googleConsent}
+                  onChange={(event) => setGoogleConsent(event.target.checked)}
+                  className="mt-1 size-4 accent-[#b64131]"
+                />
+                <span>I am 18+ and agree to the Terms and Privacy Policy.</span>
+              </label>
+              {googleConsent ? (
+                <GoogleSignInButton
+                  onCredential={async (credential) => {
+                    setBusy(true);
+                    setMessage("");
+                    try {
+                      const result = await api<{ user: User }>("/auth/google", {
+                        method: "POST",
+                        body: JSON.stringify({ credential, termsAccepted: googleConsent }),
+                      });
+                      onAuthenticated(result.user);
+                    } catch (error) {
+                      setMessage(error instanceof Error ? error.message : "Google sign-in failed");
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                />
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  className="min-h-11 rounded-full border border-white/20 bg-white/5 text-sm font-semibold text-white/45"
+                >
+                  Confirm 18+ to continue with Google
+                </button>
+              )}
             </form>
           ) : null}
 
@@ -752,7 +794,11 @@ function AuthPanel({ onAuthenticated }: { onAuthenticated: (user: User) => void 
                 required
               />
               <div className="sm:col-span-2">
-                <TurnstileWidget action="advertiser_register" theme="dark" onToken={setTurnstileToken} />
+                <TurnstileWidget
+                  action="advertiser_register"
+                  theme="dark"
+                  onToken={setTurnstileToken}
+                />
               </div>
               <label className="flex gap-3 text-sm leading-6 text-white/65 sm:col-span-2">
                 <input
@@ -1473,11 +1519,7 @@ function AdForm({
           </label>
           {formMessage ? <LightNotice>{formMessage}</LightNotice> : null}
           <div className="flex flex-wrap justify-between gap-3 border-t border-[#d64f7b]/25 pt-6">
-            <button
-              type="button"
-              onClick={() => goToStep(1)}
-              className={darkOutlineButtonClass}
-            >
+            <button type="button" onClick={() => goToStep(1)} className={darkOutlineButtonClass}>
               <ChevronLeft size={18} /> Back
             </button>
             <button
@@ -1561,9 +1603,7 @@ function AdForm({
               ) : (
                 <div>
                   <QrCode className="mx-auto text-[#b64131]" size={82} strokeWidth={1.4} />
-                  <p className="mt-3 text-sm font-bold text-white">
-                    Merchant QR awaiting setup
-                  </p>
+                  <p className="mt-3 text-sm font-bold text-white">Merchant QR awaiting setup</p>
                   <p className="mt-2 text-xs leading-5 text-white/50">
                     Admin must configure the real payment QR before accepting a payment.
                   </p>
@@ -1645,11 +1685,7 @@ function AdForm({
           {formMessage ? <LightNotice>{formMessage}</LightNotice> : null}
           {message ? <LightNotice>{message}</LightNotice> : null}
           <div className="flex flex-wrap justify-between gap-3 border-t border-[#d64f7b]/25 pt-6">
-            <button
-              type="button"
-              onClick={() => goToStep(2)}
-              className={darkOutlineButtonClass}
-            >
+            <button type="button" onClick={() => goToStep(2)} className={darkOutlineButtonClass}>
               <ChevronLeft size={18} /> Back
             </button>
             <button disabled={busy} className="rust-button min-h-12 px-8 disabled:opacity-60">

@@ -5,6 +5,7 @@ import { Throttle, minutes } from "@nestjs/throttler";
 import type { Request, Response } from "express";
 import { AuthService } from "./auth.service";
 import { LoginDto } from "./dto/login.dto";
+import { GoogleLoginDto } from "./dto/google-login.dto";
 import { RegisterDto } from "./dto/register.dto";
 import { AuthGuard } from "./auth.guard";
 import type { AuthenticatedRequest } from "./auth.types";
@@ -80,6 +81,22 @@ export class AuthController {
   ) {
     await this.turnstile.verify(dto.turnstileToken, request.ip);
     const session = await this.auth.login(dto.email, dto.password, request.get("user-agent"));
+    this.writeCookies(response, session.accessToken, session.refreshToken);
+    return { user: session.user };
+  }
+
+  @Post("google")
+  @Throttle({ default: { limit: 5, ttl: minutes(5) } })
+  async googleLogin(
+    @Body() dto: GoogleLoginDto,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const session = await this.auth.loginWithGoogle(
+      dto.credential,
+      dto.termsAccepted,
+      request.get("user-agent"),
+    );
     this.writeCookies(response, session.accessToken, session.refreshToken);
     return { user: session.user };
   }

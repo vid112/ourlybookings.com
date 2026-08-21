@@ -9,8 +9,11 @@ import {
   Post,
   Put,
   Req,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiCookieAuth, ApiTags } from "@nestjs/swagger";
 import { Prisma } from "../../generated/prisma/client";
 import { EntityType } from "../../generated/prisma/enums";
@@ -33,6 +36,13 @@ import {
   VerifyPaymentDto,
 } from "./dto/admin.dto";
 import { CreateProfileDto, UpdateProfileDto } from "./dto/profile.dto";
+
+type UploadedCategoryImage = {
+  buffer: Buffer;
+  mimetype: string;
+  originalname: string;
+  size: number;
+};
 
 @ApiTags("admin")
 @ApiCookieAuth("ourly_access")
@@ -107,12 +117,66 @@ export class AdminController {
 
   @Get("categories")
   categories() {
-    return this.prisma.category.findMany({ orderBy: { sortOrder: "asc" } });
+    return this.prisma.category.findMany({
+      orderBy: { sortOrder: "asc" },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        icon: true,
+        imageUrl: true,
+        sortOrder: true,
+        isPublished: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
   }
 
   @Patch("categories/:id")
   updateCategory(@Param("id") id: string, @Body() dto: UpdateCategoryDto) {
     return this.prisma.category.update({ where: { id }, data: dto });
+  }
+
+  @Post("categories/:id/image")
+  @UseInterceptors(
+    FileInterceptor("file", {
+      limits: { fileSize: 8 * 1024 * 1024, files: 1 },
+      fileFilter: (_request, file, callback) => {
+        const allowed = ["image/jpeg", "image/png", "image/webp"];
+        callback(
+          allowed.includes(file.mimetype)
+            ? null
+            : new BadRequestException("Only JPG, PNG and WebP images are allowed"),
+          allowed.includes(file.mimetype),
+        );
+      },
+    }),
+  )
+  async uploadCategoryImage(
+    @Param("id") id: string,
+    @UploadedFile() file: UploadedCategoryImage | undefined,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    if (!file) throw new BadRequestException("Select an image to upload");
+    const category = await this.prisma.category.findUniqueOrThrow({ where: { id } });
+    const forwardedProtocol = request.headers["x-forwarded-proto"];
+    const protocol =
+      typeof forwardedProtocol === "string"
+        ? forwardedProtocol.split(",")[0]?.trim()
+        : request.protocol;
+    const version = Date.now();
+    const imageUrl = `${protocol}://${request.get("host")}/api/v1/public/categories/${category.slug}/image?v=${version}`;
+    return this.prisma.category.update({
+      where: { id },
+      data: {
+        imageData: new Uint8Array(file.buffer),
+        imageMimeType: file.mimetype,
+        imageUrl,
+      },
+      select: { id: true, imageUrl: true, updatedAt: true },
+    });
   }
 
   @Get("profiles")

@@ -19,6 +19,7 @@ const envSchema = z.object({
   SMTP_PASSWORD: z.string().optional(),
   SMTP_FROM: z.string().optional(),
   TURNSTILE_SECRET_KEY: z.string().optional(),
+  GOOGLE_CLIENT_ID: z.string().optional(),
 });
 
 export type AppEnvironment = z.infer<typeof envSchema>;

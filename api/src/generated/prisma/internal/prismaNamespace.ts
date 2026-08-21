@@ -2858,6 +2858,7 @@ export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof
 export const UserScalarFieldEnum = {
   id: 'id',
   email: 'email',
+  googleSubject: 'googleSubject',
   passwordHash: 'passwordHash',
   displayName: 'displayName',
   mobile: 'mobile',
@@ -3053,6 +3054,8 @@ export const CategoryScalarFieldEnum = {
   description: 'description',
   icon: 'icon',
   imageUrl: 'imageUrl',
+  imageData: 'imageData',
+  imageMimeType: 'imageMimeType',
   sortOrder: 'sortOrder',
   isPublished: 'isPublished',
   createdAt: 'createdAt',
@@ -3598,6 +3601,20 @@ export type ListEnumPromotionPlanFieldRefInput<$PrismaModel> = FieldRefInputType
 
 
 /**
+ * Reference to a field of type 'Bytes'
+ */
+export type BytesFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Bytes'>
+
+
+
+/**
+ * Reference to a field of type 'Bytes[]'
+ */
+export type ListBytesFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Bytes[]'>
+
+
+
+/**
  * Reference to a field of type 'Float'
  */
 export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float'>
@@ -3939,4 +3956,3 @@ export type PrismaAction =
  * `PrismaClient` proxy available in interactive transactions.
  */
 export type TransactionClient = Omit<DefaultPrismaClient, runtime.ITXClientDenyList>
-

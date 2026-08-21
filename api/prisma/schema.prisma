@@ -106,6 +106,7 @@ enum AnalyticsEventType {
 model User {
   id                String               @id @default(cuid())
   email             String               @unique
+  googleSubject     String?              @unique
   passwordHash      String
   displayName       String
   mobile            String?
@@ -317,17 +318,19 @@ model Profile {
 }
 
 model Category {
-  id          String            @id @default(cuid())
-  name        String
-  slug        String            @unique
-  description String
-  icon        String?
-  imageUrl    String?
-  sortOrder   Int               @default(0)
-  isPublished Boolean           @default(false)
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  profiles    ProfileCategory[]
+  id            String            @id @default(cuid())
+  name          String
+  slug          String            @unique
+  description   String
+  icon          String?
+  imageUrl      String?
+  imageData     Bytes?
+  imageMimeType String?
+  sortOrder     Int               @default(0)
+  isPublished   Boolean           @default(false)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  profiles      ProfileCategory[]
 
   @@index([isPublished, sortOrder])
 }

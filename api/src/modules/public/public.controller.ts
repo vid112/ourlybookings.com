@@ -7,9 +7,11 @@ import {
   Param,
   Post,
   Query,
+  Res,
 } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { Throttle, minutes } from "@nestjs/throttler";
+import type { Response } from "express";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AnalyticsEventDto } from "./dto/analytics-event.dto";
 import { CreateLeadDto } from "./dto/create-lead.dto";
@@ -85,6 +87,24 @@ export class PublicController {
       orderBy: { sortOrder: "asc" },
       select: { id: true, name: true, slug: true, description: true, imageUrl: true },
     });
+  }
+
+  @Get("categories/:slug/image")
+  async categoryImage(@Param("slug") slug: string, @Res() response: Response) {
+    const category = await this.prisma.category.findUnique({
+      where: { slug },
+      select: { imageData: true, imageMimeType: true, updatedAt: true },
+    });
+    if (!category?.imageData || !category.imageMimeType) {
+      throw new NotFoundException("Category image not found");
+    }
+    response.set({
+      "Content-Type": category.imageMimeType,
+      "Content-Length": String(category.imageData.byteLength),
+      "Cache-Control": "public, max-age=31536000, immutable",
+      "Last-Modified": category.updatedAt.toUTCString(),
+    });
+    response.send(Buffer.from(category.imageData));
   }
 
   @Get("categories/:slug/locations")

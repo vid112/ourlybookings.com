@@ -5,12 +5,14 @@ import {
   HttpException,
   HttpStatus,
   Injectable,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { hash, verify } from "argon2";
 import { createHash, randomInt, randomUUID, timingSafeEqual } from "crypto";
+import { OAuth2Client, type TokenPayload } from "google-auth-library";
 import { PrismaService } from "../../prisma/prisma.service";
 import type { RefreshPayload } from "./auth.types";
 import { OtpMailerService } from "./otp-mailer.service";
@@ -39,6 +41,8 @@ type LoginUser = {
 
 @Injectable()
 export class AuthService {
+  private readonly google = new OAuth2Client();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
@@ -171,6 +175,86 @@ export class AuthService {
       throw new ForbiddenException("Email verification is required before login");
     }
     return this.createSession(user, user.roles, userAgent, true);
+  }
+
+  async loginWithGoogle(credential: string, termsAccepted: boolean, userAgent?: string) {
+    const clientId = this.config.get<string>("GOOGLE_CLIENT_ID");
+    if (!clientId) {
+      throw new ServiceUnavailableException("Google sign-in is not configured");
+    }
+
+    let payload: TokenPayload | undefined;
+    try {
+      const ticket = await this.google.verifyIdToken({ idToken: credential, audience: clientId });
+      payload = ticket.getPayload();
+    } catch {
+      throw new UnauthorizedException("Google sign-in could not be verified");
+    }
+    if (!payload?.sub || !payload.email || !payload.email_verified) {
+      throw new UnauthorizedException("Google account email is not verified");
+    }
+
+    const normalizedEmail = payload.email.trim().toLowerCase();
+    let user = await this.prisma.user.findUnique({
+      where: { googleSubject: payload.sub },
+      include: { roles: { include: { role: true } } },
+    });
+    if (!user) {
+      user = await this.prisma.user.findUnique({
+        where: { email: normalizedEmail },
+        include: { roles: { include: { role: true } } },
+      });
+    }
+
+    if (!user) {
+      if (!termsAccepted) {
+        throw new BadRequestException(
+          "Confirm that you are 18+ and accept the terms before continuing with Google",
+        );
+      }
+      const advertiserRole = await this.prisma.role.upsert({
+        where: { name: "Advertiser" },
+        update: {},
+        create: { name: "Advertiser", description: "Can create and manage own advertisements" },
+      });
+      user = await this.prisma.user.create({
+        data: {
+          email: normalizedEmail,
+          googleSubject: payload.sub,
+          displayName: payload.name?.trim() || normalizedEmail.split("@")[0] || "Advertiser",
+          passwordHash: await hash(`${randomUUID()}${randomUUID()}`),
+          emailVerifiedAt: new Date(),
+          termsAcceptedAt: new Date(),
+          accountStatus: "ACTIVE",
+          roles: { create: { roleId: advertiserRole.id } },
+        },
+        include: { roles: { include: { role: true } } },
+      });
+    } else {
+      if (!user.isActive || user.accountStatus === "BLOCKED") {
+        throw new UnauthorizedException("Account is unavailable");
+      }
+      if (user.googleSubject && user.googleSubject !== payload.sub) {
+        throw new UnauthorizedException("Google account does not match this user");
+      }
+      user = await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          googleSubject: payload.sub,
+          emailVerifiedAt: user.emailVerifiedAt ?? new Date(),
+          accountStatus: "ACTIVE",
+          ...(!user.termsAcceptedAt && termsAccepted ? { termsAcceptedAt: new Date() } : {}),
+        },
+        include: { roles: { include: { role: true } } },
+      });
+    }
+
+    return this.createSession(
+      user,
+      user.roles.map(({ role }) => role.name),
+      userAgent,
+      true,
+    );
   }
 
   async refresh(refreshToken: string, userAgent?: string) {

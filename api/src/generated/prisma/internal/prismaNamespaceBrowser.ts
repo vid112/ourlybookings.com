@@ -104,6 +104,7 @@ export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof
 export const UserScalarFieldEnum = {
   id: 'id',
   email: 'email',
+  googleSubject: 'googleSubject',
   passwordHash: 'passwordHash',
   displayName: 'displayName',
   mobile: 'mobile',
@@ -299,6 +300,8 @@ export const CategoryScalarFieldEnum = {
   description: 'description',
   icon: 'icon',
   imageUrl: 'imageUrl',
+  imageData: 'imageData',
+  imageMimeType: 'imageMimeType',
   sortOrder: 'sortOrder',
   isPublished: 'isPublished',
   createdAt: 'createdAt',
