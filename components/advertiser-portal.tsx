@@ -97,15 +97,34 @@ type Ad = {
 };
 type AdOptions = { countries: Country[]; categories: Category[]; services: Service[] };
 
-async function api<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${apiUrl}${path}`, {
-    ...options,
-    credentials: "include",
-    headers:
-      options?.body instanceof FormData
-        ? options.headers
-        : { "content-type": "application/json", ...options?.headers },
-  });
+const apiTimeoutMessage =
+  "Backend response nahi de raha. Please kuch seconds baad dobara try karein.";
+
+async function api<T>(path: string, options?: RequestInit, timeoutMs = 15_000): Promise<T> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+  const externalSignal = options?.signal;
+  const abortFromCaller = () => controller.abort();
+  externalSignal?.addEventListener("abort", abortFromCaller, { once: true });
+
+  let response: Response;
+  try {
+    response = await fetch(`${apiUrl}${path}`, {
+      ...options,
+      signal: controller.signal,
+      credentials: "include",
+      headers:
+        options?.body instanceof FormData
+          ? options.headers
+          : { "content-type": "application/json", ...options?.headers },
+    });
+  } catch {
+    if (controller.signal.aborted) throw new Error(apiTimeoutMessage);
+    throw new Error("Backend API se connection nahi ho pa raha. Please dobara try karein.");
+  } finally {
+    window.clearTimeout(timeout);
+    externalSignal?.removeEventListener("abort", abortFromCaller);
+  }
   const payload = (await response.json().catch(() => null)) as
     (T & { message?: string | string[] }) | null;
   if (!response.ok) {
@@ -113,6 +132,9 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
       throw new Error("Bahut zyada attempts ho gaye. Kuch minutes wait karke dobara try karein.");
     }
     const message = Array.isArray(payload?.message) ? payload.message.join(", ") : payload?.message;
+    if (response.status >= 500) {
+      throw new Error("Backend service temporarily unavailable hai. Please dobara try karein.");
+    }
     throw new Error(message || `Request failed (${response.status})`);
   }
   return payload as T;
@@ -131,6 +153,7 @@ export function AdvertiserPortal({ dashboard = false }: { dashboard?: boolean })
   const [editing, setEditing] = useState<Ad | null>(null);
   const [message, setMessage] = useState("");
   const [loadError, setLoadError] = useState("");
+  const [optionsReady, setOptionsReady] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const refreshAccount = async () => {
@@ -143,24 +166,36 @@ export function AdvertiserPortal({ dashboard = false }: { dashboard?: boolean })
   };
 
   useEffect(() => {
-    Promise.all([
-      api<{ user: User }>("/auth/me").catch(() => null),
-      api<AdOptions>("/public/ad-options"),
-    ])
-      .then(async ([session, adOptions]) => {
+    let active = true;
+
+    void api<AdOptions>("/public/ad-options", undefined, 10_000)
+      .then((adOptions) => {
+        if (!active) return;
         setOptions(adOptions);
-        setUser(session?.user ?? null);
-        if (session) await refreshAccount().catch(() => undefined);
-        setReady(true);
+        setOptionsReady(true);
       })
       .catch((error) => {
+        if (!active) return;
         setLoadError(error instanceof Error ? error.message : "API is unavailable");
-        setReady(true);
+        setOptionsReady(true);
       });
+
+    void api<{ user: User }>("/auth/me", undefined, 5_000)
+      .catch(() => null)
+      .then((session) => {
+        if (!active) return;
+        setUser(session?.user ?? null);
+        setReady(true);
+        if (session) void refreshAccount().catch(() => undefined);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   if (!ready) return <Panel>Loading advertiser account…</Panel>;
-  if (loadError) {
+  if (user && loadError) {
     return (
       <Panel>
         <h2 className="text-2xl font-bold">Advertiser service unavailable</h2>
@@ -185,6 +220,8 @@ export function AdvertiserPortal({ dashboard = false }: { dashboard?: boolean })
       />
     );
   }
+
+  if (!optionsReady) return <Panel>Preparing your ad form…</Panel>;
 
   if (dashboard && !editing) {
     return (
