@@ -1,4 +1,4 @@
-import { demoProfiles, getProfile } from "@/data/india";
+import { demoProfiles, getProfile, indiaStates } from "@/data/india";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
 
@@ -232,7 +232,48 @@ export async function getDirectoryProfiles(filters?: {
 }
 
 export async function getDirectoryOptions() {
-  return publicApi<DirectoryOptions>("/public/ad-options", true);
+  const options = await publicApi<DirectoryOptions>("/public/ad-options", true);
+  if (!options) return null;
+
+  return {
+    ...options,
+    countries: options.countries.map((country) => {
+      if (country.code !== "IN" && country.slug !== "india") return country;
+
+      const apiStates = new Map(country.states.map((state) => [state.slug, state]));
+      const mergedStates: DirectoryState[] = indiaStates.map((indiaState) => {
+        const apiState = apiStates.get(indiaState.slug);
+        const apiCities = new Map(
+          (apiState?.cities ?? []).map((directoryCity) => [directoryCity.slug, directoryCity]),
+        );
+        const mergedCities = indiaState.cities.map((indiaCity) => ({
+          ...indiaCity,
+          ...apiCities.get(indiaCity.slug),
+        }));
+
+        for (const apiCity of apiState?.cities ?? []) {
+          if (!mergedCities.some((directoryCity) => directoryCity.slug === apiCity.slug)) {
+            mergedCities.push(apiCity);
+          }
+        }
+
+        apiStates.delete(indiaState.slug);
+        return {
+          name: indiaState.name,
+          slug: indiaState.slug,
+          type: indiaState.type,
+          summary: indiaState.summary,
+          ...apiState,
+          cities: mergedCities,
+        };
+      });
+
+      return {
+        ...country,
+        states: [...mergedStates, ...apiStates.values()],
+      };
+    }),
+  };
 }
 
 export type CategoryLocations = {
