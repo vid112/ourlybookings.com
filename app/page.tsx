@@ -94,49 +94,67 @@ export default async function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
-      <section className="relative isolate min-h-[760px] overflow-hidden border-b border-white/10">
+      <section className="relative isolate overflow-hidden border-b border-white/10 md:min-h-[760px]">
+        <div className="relative aspect-[1920/850] w-full overflow-hidden bg-black md:hidden">
+          <Image
+            src="/images/hero-lounge.png?v=20260812"
+            alt="Premium Ourly Bookings homepage banner"
+            fill
+            priority
+            sizes="100vw"
+            className="object-contain"
+          />
+        </div>
         <Image
           src="/images/hero-lounge.png?v=20260812"
           alt="Premium Ourly Bookings homepage banner"
           fill
           priority
           sizes="100vw"
-          className="-z-10 object-cover object-[68%_center]"
+          className="-z-10 hidden object-cover object-[68%_center] md:block"
         />
-        <div className="site-container flex min-h-[760px] items-center py-16">
-          <div className="w-full max-w-3xl">
-            <h1 className="text-balance max-w-2xl font-display text-5xl font-bold leading-[1.02] tracking-[-0.06em] text-paper sm:text-6xl lg:text-7xl">
-              Discover verified independent profiles worldwide
-            </h1>
-            <p className="mt-6 max-w-xl text-lg leading-8 text-muted">
-              Privacy-first discovery for consenting adults, with city-based browsing, consent
-              controls and direct advertiser contact.
-            </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/profiles"
-                className="brand-gradient rounded-xl px-7 py-4 text-center font-bold text-white shadow-xl shadow-brand/20"
-              >
-                Browse Profiles
-              </Link>
-              <Link
-                href="/india"
-                className="rounded-xl border border-brand/60 bg-black/35 px-7 py-4 text-center font-bold text-paper backdrop-blur hover:bg-brand/10"
-              >
-                Explore Locations
-              </Link>
+        <div className="absolute inset-0 -z-[5] hidden bg-gradient-to-r from-black/85 via-black/55 to-black/20 md:block" />
+        <div className="home-mobile-hero relative md:bg-transparent">
+          <div className="home-mobile-orb home-mobile-orb-one md:hidden" aria-hidden="true" />
+          <div className="home-mobile-orb home-mobile-orb-two md:hidden" aria-hidden="true" />
+          <div className="site-container flex items-center py-10 sm:py-14 md:min-h-[760px] md:py-16">
+            <div className="w-full max-w-3xl">
+              <p className="mb-4 inline-flex rounded-full border border-brand/30 bg-brand/10 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.2em] text-brand sm:text-xs md:hidden">
+                Verified • Private • Independent
+              </p>
+              <h1 className="text-balance max-w-2xl font-display text-[2.15rem] font-bold leading-[1.08] tracking-[-0.055em] text-paper sm:text-5xl md:text-6xl lg:text-7xl">
+                Discover verified independent profiles worldwide
+              </h1>
+              <p className="mt-5 max-w-xl text-[15px] leading-7 text-muted sm:mt-6 sm:text-lg sm:leading-8">
+                Privacy-first discovery for consenting adults, with city-based browsing, consent
+                controls and direct advertiser contact.
+              </p>
+              <div className="mt-7 grid grid-cols-2 gap-3 sm:mt-8 sm:flex sm:flex-row">
+                <Link
+                  href="/profiles"
+                  className="brand-gradient rounded-xl px-3 py-3.5 text-center text-sm font-bold text-white shadow-xl shadow-brand/20 transition hover:-translate-y-0.5 sm:px-7 sm:py-4 sm:text-base"
+                >
+                  Browse Profiles
+                </Link>
+                <Link
+                  href="/india"
+                  className="rounded-xl border border-brand/60 bg-black/35 px-3 py-3.5 text-center text-sm font-bold text-paper backdrop-blur transition hover:-translate-y-0.5 hover:bg-brand/10 sm:px-7 sm:py-4 sm:text-base"
+                >
+                  Explore Locations
+                </Link>
+              </div>
+              <div className="mt-10 max-w-3xl">
+                <HeroSearch
+                  countries={directoryOptions?.countries ?? []}
+                  categories={directoryOptions?.categories ?? []}
+                />
+              </div>
+              <p className="mt-5 flex max-w-xl items-start gap-2 text-xs leading-5 text-muted">
+                <ShieldCheck className="mt-0.5 shrink-0 text-gold" size={16} />
+                18+ only. Advertisers are independently responsible for content and lawful
+                communication.
+              </p>
             </div>
-            <div className="mt-10 max-w-3xl">
-              <HeroSearch
-                countries={directoryOptions?.countries ?? []}
-                categories={directoryOptions?.categories ?? []}
-              />
-            </div>
-            <p className="mt-5 flex max-w-xl items-start gap-2 text-xs leading-5 text-muted">
-              <ShieldCheck className="mt-0.5 shrink-0 text-gold" size={16} />
-              18+ only. Advertisers are independently responsible for content and lawful
-              communication.
-            </p>
           </div>
         </div>
       </section>
@@ -271,21 +289,35 @@ export default async function HomePage() {
           className="-z-20 object-cover object-center"
           aria-hidden="true"
         />
-        <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(5,7,12,0.96),rgba(10,12,18,0.78)_52%,rgba(5,7,12,0.92)),linear-gradient(180deg,rgba(5,7,12,0.50),rgba(5,7,12,0.94))]" />
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_15%_15%,rgba(220,50,103,0.24),transparent_32%),radial-gradient(circle_at_90%_80%,rgba(201,165,92,0.12),transparent_30%),linear-gradient(90deg,rgba(5,7,12,0.96),rgba(10,12,18,0.78)_52%,rgba(5,7,12,0.94)),linear-gradient(180deg,rgba(5,7,12,0.50),rgba(5,7,12,0.94))]" />
         <div className="site-container relative">
-          <SectionHeading
-            title="Explore popular services"
-            description="Service pages use careful, non-misleading language and link only to independently managed profiles."
-          />
-          <div className="mt-12 grid overflow-hidden rounded-[24px] border border-white/15 bg-black/35 shadow-2xl shadow-black/30 backdrop-blur-sm sm:grid-cols-2 lg:grid-cols-5">
+          <div className="max-w-3xl">
+            <p className="mb-3 text-xs font-extrabold uppercase tracking-[0.24em] text-brand">
+              Find your experience
+            </p>
+            <h2 className="text-balance font-display text-3xl font-bold tracking-[-0.05em] text-paper sm:text-4xl lg:text-5xl">
+              Explore our <span className="service-heading-accent">services</span>
+            </h2>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-muted sm:text-lg">
+              Browse carefully described services linked only to independently managed profiles.
+            </p>
+          </div>
+          <div className="mt-8 grid grid-cols-2 gap-3 sm:mt-12 sm:grid-cols-2 sm:gap-4 lg:grid-cols-5">
             {services.map(({ title, icon: Icon }) => (
               <Link
                 key={title}
                 href="/services"
-                className="group flex min-h-44 flex-col justify-between border-b border-white/12 p-6 transition hover:bg-white/10 sm:border-r lg:border-b-0"
+                className="service-card group flex min-h-36 flex-col justify-between rounded-2xl border border-white/12 bg-black/35 p-4 backdrop-blur-sm last:col-span-2 sm:min-h-44 sm:p-6 sm:last:col-span-1"
               >
-                <Icon className="text-brand transition group-hover:scale-110" size={30} />
-                <span className="font-display text-lg font-bold">{title}</span>
+                <span className="service-icon grid size-11 place-items-center rounded-2xl border border-brand/25 bg-brand/10 text-brand sm:size-12">
+                  <Icon className="transition group-hover:scale-110" size={25} />
+                </span>
+                <span className="flex items-end justify-between gap-2">
+                  <span className="font-display text-sm font-bold leading-5 sm:text-lg">{title}</span>
+                  <span className="text-brand transition group-hover:translate-x-1" aria-hidden="true">
+                    →
+                  </span>
+                </span>
               </Link>
             ))}
           </div>
