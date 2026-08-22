@@ -95,7 +95,7 @@ export default async function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
       <section className="relative isolate overflow-hidden border-b border-white/10 md:min-h-[760px]">
-        <div className="relative aspect-[1920/850] w-full overflow-hidden bg-black md:hidden">
+        <div className="relative aspect-[1783/882] w-full overflow-hidden bg-black md:hidden">
           <Image
             src="/images/hero-lounge.png?v=20260812"
             alt="Premium Ourly Bookings homepage banner"
@@ -104,6 +104,32 @@ export default async function HomePage() {
             sizes="100vw"
             className="object-contain"
           />
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(3,4,8,0.84)_0%,rgba(3,4,8,0.58)_38%,rgba(3,4,8,0.04)_72%)]" />
+          <div className="absolute inset-y-0 left-0 flex w-[61%] flex-col justify-center px-4 py-3 sm:px-7">
+            <p className="mb-1.5 text-[7px] font-extrabold uppercase tracking-[0.18em] text-brand sm:text-[9px]">
+              Verified • Private • Independent
+            </p>
+            <h1 className="text-balance font-display text-[17px] font-bold leading-[1.08] tracking-[-0.05em] text-white min-[420px]:text-xl sm:text-3xl">
+              Discover verified profiles worldwide
+            </h1>
+            <p className="mt-1.5 max-w-56 text-[8px] leading-[1.45] text-white/75 min-[420px]:text-[9px] sm:mt-2 sm:text-xs">
+              Privacy-first discovery for consenting adults.
+            </p>
+            <div className="mt-2.5 flex gap-1.5 sm:mt-4 sm:gap-2">
+              <Link
+                href="/profiles"
+                className="brand-gradient rounded-md px-2.5 py-1.5 text-center text-[8px] font-extrabold text-white shadow-lg shadow-brand/20 min-[420px]:text-[9px] sm:rounded-lg sm:px-4 sm:py-2 sm:text-xs"
+              >
+                Browse Profiles
+              </Link>
+              <Link
+                href="/india"
+                className="rounded-md border border-white/35 bg-black/30 px-2.5 py-1.5 text-center text-[8px] font-extrabold text-white backdrop-blur-sm min-[420px]:text-[9px] sm:rounded-lg sm:px-4 sm:py-2 sm:text-xs"
+              >
+                Explore India
+              </Link>
+            </div>
+          </div>
         </div>
         <Image
           src="/images/hero-lounge.png?v=20260812"
@@ -117,19 +143,16 @@ export default async function HomePage() {
         <div className="home-mobile-hero relative md:bg-transparent">
           <div className="home-mobile-orb home-mobile-orb-one md:hidden" aria-hidden="true" />
           <div className="home-mobile-orb home-mobile-orb-two md:hidden" aria-hidden="true" />
-          <div className="site-container flex items-center py-10 sm:py-14 md:min-h-[760px] md:py-16">
+          <div className="site-container flex items-center py-5 sm:py-8 md:min-h-[760px] md:py-16">
             <div className="w-full max-w-3xl">
-              <p className="mb-4 inline-flex rounded-full border border-brand/30 bg-brand/10 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.2em] text-brand sm:text-xs md:hidden">
-                Verified • Private • Independent
-              </p>
-              <h1 className="text-balance max-w-2xl font-display text-[2.15rem] font-bold leading-[1.08] tracking-[-0.055em] text-paper sm:text-5xl md:text-6xl lg:text-7xl">
+              <h1 className="hidden max-w-2xl text-balance font-display font-bold leading-[1.08] tracking-[-0.055em] text-paper md:block md:text-6xl lg:text-7xl">
                 Discover verified independent profiles worldwide
               </h1>
-              <p className="mt-5 max-w-xl text-[15px] leading-7 text-muted sm:mt-6 sm:text-lg sm:leading-8">
+              <p className="mt-6 hidden max-w-xl text-lg leading-8 text-muted md:block">
                 Privacy-first discovery for consenting adults, with city-based browsing, consent
                 controls and direct advertiser contact.
               </p>
-              <div className="mt-7 grid grid-cols-2 gap-3 sm:mt-8 sm:flex sm:flex-row">
+              <div className="mt-8 hidden gap-3 md:flex md:flex-row">
                 <Link
                   href="/profiles"
                   className="brand-gradient rounded-xl px-3 py-3.5 text-center text-sm font-bold text-white shadow-xl shadow-brand/20 transition hover:-translate-y-0.5 sm:px-7 sm:py-4 sm:text-base"
@@ -143,7 +166,7 @@ export default async function HomePage() {
                   Explore Locations
                 </Link>
               </div>
-              <div className="mt-10 max-w-3xl">
+              <div className="max-w-3xl md:mt-10">
                 <HeroSearch
                   countries={directoryOptions?.countries ?? []}
                   categories={directoryOptions?.categories ?? []}

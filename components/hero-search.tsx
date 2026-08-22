@@ -36,7 +36,7 @@ export function HeroSearch({
   const selectedState = selectedCountry?.states.find((state) => state.slug === stateSlug);
   return (
     <form
-      className="glass-surface grid gap-3 rounded-2xl p-3 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1fr_auto]"
+      className="glass-surface grid gap-2 rounded-xl p-2 sm:grid-cols-2 sm:gap-3 sm:rounded-2xl sm:p-3 xl:grid-cols-[1fr_1fr_1fr_1fr_auto]"
       onSubmit={(event) => {
         event.preventDefault();
         const query = new URLSearchParams();
@@ -111,7 +111,7 @@ export function HeroSearch({
       </select>
       <button
         type="submit"
-        className="brand-gradient inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-6 text-sm font-bold text-white"
+        className="brand-gradient inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-4 text-xs font-bold text-white sm:min-h-12 sm:rounded-xl sm:px-6 sm:text-sm"
       >
         <Search size={17} /> Search
       </button>
@@ -120,4 +120,4 @@ export function HeroSearch({
 }
 
 const heroField =
-  "min-h-12 rounded-xl border border-white/12 bg-surface-2 px-4 text-sm text-paper disabled:cursor-not-allowed disabled:opacity-55";
+  "min-h-10 rounded-lg border border-white/12 bg-surface-2 px-3 text-xs text-paper disabled:cursor-not-allowed disabled:opacity-55 sm:min-h-12 sm:rounded-xl sm:px-4 sm:text-sm";
