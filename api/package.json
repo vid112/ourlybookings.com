@@ -55,6 +55,7 @@
     "@types/node": "^22.15.3",
     "@types/nodemailer": "^8.0.1",
     "@types/pg": "^8.15.5",
+    "country-state-city": "3.2.1",
     "eslint": "^9.25.1",
     "jest": "^30.0.5",
     "prisma": "7.9.0",
