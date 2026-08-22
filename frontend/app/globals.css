@@ -136,6 +136,86 @@ a {
   background-size: 100% 1px;
 }
 
+.home-mobile-hero {
+  background:
+    radial-gradient(circle at 92% 18%, rgb(220 50 103 / 0.16), transparent 13rem),
+    linear-gradient(180deg, #0b0d14 0%, #050505 100%);
+}
+
+.home-mobile-orb {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(1px);
+  pointer-events: none;
+  animation: home-orb-drift 7s ease-in-out infinite alternate;
+}
+
+.home-mobile-orb-one {
+  top: 2.5rem;
+  right: -3rem;
+  width: 8rem;
+  height: 8rem;
+  background: rgb(220 50 103 / 0.12);
+}
+
+.home-mobile-orb-two {
+  bottom: 5rem;
+  left: -2.5rem;
+  width: 5rem;
+  height: 5rem;
+  background: rgb(201 165 92 / 0.09);
+  animation-delay: -3s;
+}
+
+.service-heading-accent {
+  background: linear-gradient(110deg, #ff6c9b 12%, #dc3267 52%, #e8c77f 92%);
+  background-clip: text;
+  color: transparent;
+  -webkit-background-clip: text;
+}
+
+.service-card {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 12px 35px rgb(0 0 0 / 0.18);
+  transition: transform 220ms ease, border-color 220ms ease, background-color 220ms ease, box-shadow 220ms ease;
+}
+
+.service-card:hover {
+  transform: translateY(-5px);
+  border-color: rgb(220 50 103 / 0.5);
+  background: rgb(22 29 45 / 0.78);
+  box-shadow: 0 18px 42px rgb(0 0 0 / 0.28), 0 0 30px rgb(220 50 103 / 0.08);
+}
+
+.service-icon {
+  animation: service-icon-float 4s ease-in-out infinite;
+}
+
+.service-card:nth-child(2n) .service-icon {
+  animation-delay: -2s;
+}
+
+@media (min-width: 768px) {
+  .home-mobile-hero {
+    background: transparent;
+  }
+}
+
+@keyframes home-orb-drift {
+  to {
+    transform: translate3d(-1rem, 1.25rem, 0) scale(1.08);
+  }
+}
+
+@keyframes service-icon-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
