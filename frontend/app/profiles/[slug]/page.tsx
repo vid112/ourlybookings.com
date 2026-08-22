@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import {
   BadgeCheck,
+  ChevronDown,
   Languages,
   Mail,
   MapPin,
@@ -47,7 +48,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
     : undefined;
 
   return (
-    <div className="section-space">
+    <div className="profile-page-shell py-4 sm:py-12 lg:py-20">
       <div className="site-container">
         <Breadcrumbs
           items={[
@@ -58,12 +59,12 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
             { label: profile.name },
           ]}
         />
-        <article className="grid overflow-hidden rounded-[28px] border border-white/12 bg-surface lg:grid-cols-[0.95fr_1.05fr]">
+        <article className="grid overflow-hidden rounded-[22px] border border-white/12 bg-surface shadow-2xl shadow-black/30 sm:rounded-[28px] lg:grid-cols-[0.95fr_1.05fr]">
           <div className="grid gap-2 bg-surface-2 p-2 sm:grid-cols-2">
             {profile.images.slice(0, 5).map((image, index) => (
               <div
                 key={image.url}
-                className={`relative overflow-hidden rounded-2xl bg-black ${index === 0 ? "min-h-[520px] sm:col-span-2" : "min-h-64"}`}
+                className={`relative overflow-hidden rounded-2xl bg-black ${index === 0 ? "min-h-[390px] sm:col-span-2 sm:min-h-[520px]" : "min-h-56 sm:min-h-64"}`}
               >
                 <Image
                   src={image.url}
@@ -80,11 +81,11 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
               </div>
             ))}
           </div>
-          <div className="p-6 sm:p-10 lg:p-12">
+          <div className="profile-content-panel p-4 sm:p-8 lg:p-10 xl:p-12">
             <div className="inline-flex rounded-full border border-brand/40 bg-brand/10 px-3 py-1.5 text-xs font-bold text-brand">
               {profile.isDemo ? "Fictional demo profile" : "18+ published listing"}
             </div>
-            <h1 className="mt-6 font-display text-5xl font-bold tracking-[-0.055em]">
+            <h1 className="mt-4 font-display text-4xl font-bold tracking-[-0.055em] sm:mt-6 sm:text-5xl">
               {profile.adTitle || `${profile.name}, ${profile.age}`}
             </h1>
             {profile.adTitle ? (
@@ -92,10 +93,10 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
                 {profile.name}, {profile.age}
               </p>
             ) : null}
-            <p className="mt-3 text-lg font-bold text-brand">
+            <p className="mt-3 text-base font-bold text-brand sm:text-lg">
               {profile.category} · {profile.city}
             </p>
-            <div className="mt-7 flex flex-wrap gap-5 text-sm text-muted">
+            <div className="mt-5 flex flex-wrap gap-x-4 gap-y-3 text-xs text-muted sm:mt-7 sm:gap-5 sm:text-sm">
               <span className="inline-flex items-center gap-2">
                 <BadgeCheck className="text-success" size={18} /> Adult record reviewed
               </span>
@@ -108,11 +109,11 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
                 </span>
               ) : null}
             </div>
-            <p className="mt-8 whitespace-pre-line text-lg leading-8 text-muted">
+            <p className="mt-5 whitespace-pre-line text-base leading-7 text-muted sm:mt-8 sm:text-lg sm:leading-8">
               {profile.fullBio}
             </p>
             {profile.services.length ? (
-              <div className="mt-8 flex flex-wrap gap-2">
+              <div className="mt-5 flex flex-wrap gap-2 sm:mt-8">
                 {profile.services.map((service) => (
                   <span
                     key={service}
@@ -123,48 +124,68 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
                 ))}
               </div>
             ) : null}
-            <dl className="mt-10 grid gap-5 border-y border-white/12 py-7 sm:grid-cols-2">
-              <div>
-                <dt className="text-xs font-bold uppercase tracking-[0.15em] text-muted">
-                  Availability
-                </dt>
-                <dd className="mt-2 font-semibold">
-                  {profile.availability ?? "Contact advertiser"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs font-bold uppercase tracking-[0.15em] text-muted">
-                  Gallery
-                </dt>
-                <dd className="mt-2 font-semibold">
-                  {profile.images.length} authorized source image(s)
-                </dd>
-              </div>
-              {[
-                ["Gender", profile.gender],
-                ["Nationality", profile.nationality],
-                ["Ethnicity", profile.ethnicity],
-                ["Hair", profile.hairColor],
-                ["Eyes", profile.eyeColor],
-                ["Body type", profile.bodyType],
-                ["Bust", profile.bust],
-                ["Height", profile.heightCm ? `${profile.heightCm} cm` : undefined],
-                ["Weight", profile.weightKg ? `${profile.weightKg} kg` : undefined],
-                ["Attention to", profile.attentionTo],
-                ["Place of service", profile.placeOfService],
-              ]
-                .filter((item) => item[1])
-                .map(([label, value]) => (
-                  <div key={label}>
-                    <dt className="text-xs font-bold uppercase tracking-[0.15em] text-muted">
-                      {label}
-                    </dt>
-                    <dd className="mt-2 font-semibold">{value}</dd>
-                  </div>
-                ))}
-            </dl>
+            <details className="group profile-details-card mt-6 overflow-hidden rounded-2xl border border-white/12 sm:mt-10">
+              <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 [&::-webkit-details-marker]:hidden sm:min-h-16 sm:px-6">
+                <span>
+                  <span className="block font-display text-sm font-bold sm:text-base">
+                    View complete details
+                  </span>
+                  <span className="mt-0.5 block text-[11px] text-muted sm:text-xs">
+                    Availability, appearance and service preferences
+                  </span>
+                </span>
+                <span className="grid size-9 shrink-0 place-items-center rounded-full border border-brand/30 bg-brand/10 text-brand">
+                  <ChevronDown
+                    size={18}
+                    className="transition-transform duration-200 group-open:rotate-180"
+                  />
+                </span>
+              </summary>
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-5 border-t border-white/10 bg-black/15 p-4 sm:gap-x-8 sm:gap-y-6 sm:p-6">
+                <div>
+                  <dt className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted sm:text-xs">
+                    Availability
+                  </dt>
+                  <dd className="mt-1.5 text-sm font-semibold sm:mt-2 sm:text-base">
+                    {profile.availability ?? "Contact advertiser"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted sm:text-xs">
+                    Gallery
+                  </dt>
+                  <dd className="mt-1.5 text-sm font-semibold sm:mt-2 sm:text-base">
+                    {profile.images.length} authorized image(s)
+                  </dd>
+                </div>
+                {[
+                  ["Gender", profile.gender],
+                  ["Nationality", profile.nationality],
+                  ["Ethnicity", profile.ethnicity],
+                  ["Hair", profile.hairColor],
+                  ["Eyes", profile.eyeColor],
+                  ["Body type", profile.bodyType],
+                  ["Bust", profile.bust],
+                  ["Height", profile.heightCm ? `${profile.heightCm} cm` : undefined],
+                  ["Weight", profile.weightKg ? `${profile.weightKg} kg` : undefined],
+                  ["Attention to", profile.attentionTo],
+                  ["Place of service", profile.placeOfService],
+                ]
+                  .filter((item) => item[1])
+                  .map(([label, value]) => (
+                    <div key={label}>
+                      <dt className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted sm:text-xs">
+                        {label}
+                      </dt>
+                      <dd className="mt-1.5 text-sm font-semibold sm:mt-2 sm:text-base">
+                        {value}
+                      </dd>
+                    </div>
+                  ))}
+              </dl>
+            </details>
             {profile.availabilitySlots?.length ? (
-              <div className="mt-6 flex flex-wrap gap-2">
+              <div className="mt-5 flex flex-wrap gap-2 sm:mt-6">
                 {profile.availabilitySlots.map((slot) => (
                   <span
                     key={slot}
@@ -175,7 +196,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
                 ))}
               </div>
             ) : null}
-            <div className="mt-9 grid gap-3 sm:grid-cols-2">
+            <div className="mt-6 grid gap-3 sm:mt-9 sm:grid-cols-2">
               {profile.contactPhone && !profile.isDemo ? (
                 <a
                   href={`tel:${profile.contactPhone}`}
