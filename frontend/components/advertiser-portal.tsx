@@ -155,6 +155,8 @@ export function AdvertiserPortal({ dashboard = false }: { dashboard?: boolean })
   const [loadError, setLoadError] = useState("");
   const [optionsReady, setOptionsReady] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Keep an unsuccessfully submitted draft so a retry does not create duplicate ads.
+  const pendingAdId = useRef<string | null>(null);
 
   const refreshAccount = async () => {
     const [nextAds, nextDashboard] = await Promise.all([
@@ -298,12 +300,14 @@ export function AdvertiserPortal({ dashboard = false }: { dashboard?: boolean })
             contactTelegram: optionalText("contactTelegram"),
             contactEmail: optionalText("contactEmail"),
           };
-          const ad = editing
-            ? await api<Ad>(`/advertiser/ads/${editing.id}`, {
+          const draftId = editing?.id ?? pendingAdId.current;
+          const ad = draftId
+            ? await api<Ad>(`/advertiser/ads/${draftId}`, {
                 method: "PATCH",
                 body: JSON.stringify(body),
               })
             : await api<Ad>("/advertiser/ads", { method: "POST", body: JSON.stringify(body) });
+          pendingAdId.current = ad.id;
           const files = form
             .getAll("images")
             .filter((item): item is File => item instanceof File && item.size > 0);
@@ -316,7 +320,7 @@ export function AdvertiserPortal({ dashboard = false }: { dashboard?: boolean })
           }
           if (!paymentProofMediaId)
             throw new Error("Payment screenshot upload karna required hai.");
-          await api(`/advertiser/ads/${ad.id}/submit`, {
+          const submitOptions = {
             method: "POST",
             body: JSON.stringify({
               turnstileToken: turnstileToken || undefined,
@@ -324,7 +328,17 @@ export function AdvertiserPortal({ dashboard = false }: { dashboard?: boolean })
               paymentProofMediaId,
               paymentReference: optionalText("paymentReference"),
             }),
-          });
+          } satisfies RequestInit;
+          try {
+            await api(`/advertiser/ads/${ad.id}/submit`, submitOptions, 30_000);
+          } catch (firstError) {
+            // The final update is idempotent. Retry once because production database cold starts
+            // can briefly fail after the larger media upload has completed.
+            await api(`/advertiser/ads/${ad.id}/submit`, submitOptions, 30_000).catch(() => {
+              throw firstError;
+            });
+          }
+          pendingAdId.current = null;
           await refreshAccount();
           setMessage("Ad aur payment proof admin verification ke liye submit ho gaya hai.");
           setEditing(null);
