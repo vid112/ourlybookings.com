@@ -55,6 +55,8 @@ export type MediaAssetMinAggregateOutputType = {
   height: number | null
   duration: number | null
   bytes: number | null
+  imageData: runtime.Bytes | null
+  imageMimeType: string | null
   folder: string | null
   version: string | null
   altText: string | null
@@ -81,6 +83,8 @@ export type MediaAssetMaxAggregateOutputType = {
   height: number | null
   duration: number | null
   bytes: number | null
+  imageData: runtime.Bytes | null
+  imageMimeType: string | null
   folder: string | null
   version: string | null
   altText: string | null
@@ -107,6 +111,8 @@ export type MediaAssetCountAggregateOutputType = {
   height: number
   duration: number
   bytes: number
+  imageData: number
+  imageMimeType: number
   folder: number
   version: number
   altText: number
@@ -154,6 +160,8 @@ export type MediaAssetMinAggregateInputType = {
   height?: true
   duration?: true
   bytes?: true
+  imageData?: true
+  imageMimeType?: true
   folder?: true
   version?: true
   altText?: true
@@ -180,6 +188,8 @@ export type MediaAssetMaxAggregateInputType = {
   height?: true
   duration?: true
   bytes?: true
+  imageData?: true
+  imageMimeType?: true
   folder?: true
   version?: true
   altText?: true
@@ -206,6 +216,8 @@ export type MediaAssetCountAggregateInputType = {
   height?: true
   duration?: true
   bytes?: true
+  imageData?: true
+  imageMimeType?: true
   folder?: true
   version?: true
   altText?: true
@@ -320,6 +332,8 @@ export type MediaAssetGroupByOutputType = {
   height: number | null
   duration: number | null
   bytes: number
+  imageData: runtime.Bytes | null
+  imageMimeType: string | null
   folder: string
   version: string | null
   altText: string
@@ -370,6 +384,8 @@ export type MediaAssetWhereInput = {
   height?: Prisma.IntNullableFilter<"MediaAsset"> | number | null
   duration?: Prisma.FloatNullableFilter<"MediaAsset"> | number | null
   bytes?: Prisma.IntFilter<"MediaAsset"> | number
+  imageData?: Prisma.BytesNullableFilter<"MediaAsset"> | runtime.Bytes | null
+  imageMimeType?: Prisma.StringNullableFilter<"MediaAsset"> | string | null
   folder?: Prisma.StringFilter<"MediaAsset"> | string
   version?: Prisma.StringNullableFilter<"MediaAsset"> | string | null
   altText?: Prisma.StringFilter<"MediaAsset"> | string
@@ -399,6 +415,8 @@ export type MediaAssetOrderByWithRelationInput = {
   height?: Prisma.SortOrderInput | Prisma.SortOrder
   duration?: Prisma.SortOrderInput | Prisma.SortOrder
   bytes?: Prisma.SortOrder
+  imageData?: Prisma.SortOrderInput | Prisma.SortOrder
+  imageMimeType?: Prisma.SortOrderInput | Prisma.SortOrder
   folder?: Prisma.SortOrder
   version?: Prisma.SortOrderInput | Prisma.SortOrder
   altText?: Prisma.SortOrder
@@ -431,6 +449,8 @@ export type MediaAssetWhereUniqueInput = Prisma.AtLeast<{
   height?: Prisma.IntNullableFilter<"MediaAsset"> | number | null
   duration?: Prisma.FloatNullableFilter<"MediaAsset"> | number | null
   bytes?: Prisma.IntFilter<"MediaAsset"> | number
+  imageData?: Prisma.BytesNullableFilter<"MediaAsset"> | runtime.Bytes | null
+  imageMimeType?: Prisma.StringNullableFilter<"MediaAsset"> | string | null
   folder?: Prisma.StringFilter<"MediaAsset"> | string
   version?: Prisma.StringNullableFilter<"MediaAsset"> | string | null
   altText?: Prisma.StringFilter<"MediaAsset"> | string
@@ -460,6 +480,8 @@ export type MediaAssetOrderByWithAggregationInput = {
   height?: Prisma.SortOrderInput | Prisma.SortOrder
   duration?: Prisma.SortOrderInput | Prisma.SortOrder
   bytes?: Prisma.SortOrder
+  imageData?: Prisma.SortOrderInput | Prisma.SortOrder
+  imageMimeType?: Prisma.SortOrderInput | Prisma.SortOrder
   folder?: Prisma.SortOrder
   version?: Prisma.SortOrderInput | Prisma.SortOrder
   altText?: Prisma.SortOrder
@@ -495,6 +517,8 @@ export type MediaAssetScalarWhereWithAggregatesInput = {
   height?: Prisma.IntNullableWithAggregatesFilter<"MediaAsset"> | number | null
   duration?: Prisma.FloatNullableWithAggregatesFilter<"MediaAsset"> | number | null
   bytes?: Prisma.IntWithAggregatesFilter<"MediaAsset"> | number
+  imageData?: Prisma.BytesNullableWithAggregatesFilter<"MediaAsset"> | runtime.Bytes | null
+  imageMimeType?: Prisma.StringNullableWithAggregatesFilter<"MediaAsset"> | string | null
   folder?: Prisma.StringWithAggregatesFilter<"MediaAsset"> | string
   version?: Prisma.StringNullableWithAggregatesFilter<"MediaAsset"> | string | null
   altText?: Prisma.StringWithAggregatesFilter<"MediaAsset"> | string
@@ -522,6 +546,8 @@ export type MediaAssetCreateInput = {
   height?: number | null
   duration?: number | null
   bytes: number
+  imageData?: runtime.Bytes | null
+  imageMimeType?: string | null
   folder: string
   version?: string | null
   altText: string
@@ -550,6 +576,8 @@ export type MediaAssetUncheckedCreateInput = {
   height?: number | null
   duration?: number | null
   bytes: number
+  imageData?: runtime.Bytes | null
+  imageMimeType?: string | null
   folder: string
   version?: string | null
   altText: string
@@ -578,6 +606,8 @@ export type MediaAssetUpdateInput = {
   height?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   duration?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   bytes?: Prisma.IntFieldUpdateOperationsInput | number
+  imageData?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  imageMimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   folder?: Prisma.StringFieldUpdateOperationsInput | string
   version?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   altText?: Prisma.StringFieldUpdateOperationsInput | string
@@ -606,6 +636,8 @@ export type MediaAssetUncheckedUpdateInput = {
   height?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   duration?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   bytes?: Prisma.IntFieldUpdateOperationsInput | number
+  imageData?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  imageMimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   folder?: Prisma.StringFieldUpdateOperationsInput | string
   version?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   altText?: Prisma.StringFieldUpdateOperationsInput | string
@@ -634,6 +666,8 @@ export type MediaAssetCreateManyInput = {
   height?: number | null
   duration?: number | null
   bytes: number
+  imageData?: runtime.Bytes | null
+  imageMimeType?: string | null
   folder: string
   version?: string | null
   altText: string
@@ -661,6 +695,8 @@ export type MediaAssetUpdateManyMutationInput = {
   height?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   duration?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   bytes?: Prisma.IntFieldUpdateOperationsInput | number
+  imageData?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  imageMimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   folder?: Prisma.StringFieldUpdateOperationsInput | string
   version?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   altText?: Prisma.StringFieldUpdateOperationsInput | string
@@ -687,6 +723,8 @@ export type MediaAssetUncheckedUpdateManyInput = {
   height?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   duration?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   bytes?: Prisma.IntFieldUpdateOperationsInput | number
+  imageData?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  imageMimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   folder?: Prisma.StringFieldUpdateOperationsInput | string
   version?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   altText?: Prisma.StringFieldUpdateOperationsInput | string
@@ -724,6 +762,8 @@ export type MediaAssetCountOrderByAggregateInput = {
   height?: Prisma.SortOrder
   duration?: Prisma.SortOrder
   bytes?: Prisma.SortOrder
+  imageData?: Prisma.SortOrder
+  imageMimeType?: Prisma.SortOrder
   folder?: Prisma.SortOrder
   version?: Prisma.SortOrder
   altText?: Prisma.SortOrder
@@ -760,6 +800,8 @@ export type MediaAssetMaxOrderByAggregateInput = {
   height?: Prisma.SortOrder
   duration?: Prisma.SortOrder
   bytes?: Prisma.SortOrder
+  imageData?: Prisma.SortOrder
+  imageMimeType?: Prisma.SortOrder
   folder?: Prisma.SortOrder
   version?: Prisma.SortOrder
   altText?: Prisma.SortOrder
@@ -786,6 +828,8 @@ export type MediaAssetMinOrderByAggregateInput = {
   height?: Prisma.SortOrder
   duration?: Prisma.SortOrder
   bytes?: Prisma.SortOrder
+  imageData?: Prisma.SortOrder
+  imageMimeType?: Prisma.SortOrder
   folder?: Prisma.SortOrder
   version?: Prisma.SortOrder
   altText?: Prisma.SortOrder
@@ -903,6 +947,8 @@ export type MediaAssetCreateWithoutCreatedByInput = {
   height?: number | null
   duration?: number | null
   bytes: number
+  imageData?: runtime.Bytes | null
+  imageMimeType?: string | null
   folder: string
   version?: string | null
   altText: string
@@ -930,6 +976,8 @@ export type MediaAssetUncheckedCreateWithoutCreatedByInput = {
   height?: number | null
   duration?: number | null
   bytes: number
+  imageData?: runtime.Bytes | null
+  imageMimeType?: string | null
   folder: string
   version?: string | null
   altText: string
@@ -986,6 +1034,8 @@ export type MediaAssetScalarWhereInput = {
   height?: Prisma.IntNullableFilter<"MediaAsset"> | number | null
   duration?: Prisma.FloatNullableFilter<"MediaAsset"> | number | null
   bytes?: Prisma.IntFilter<"MediaAsset"> | number
+  imageData?: Prisma.BytesNullableFilter<"MediaAsset"> | runtime.Bytes | null
+  imageMimeType?: Prisma.StringNullableFilter<"MediaAsset"> | string | null
   folder?: Prisma.StringFilter<"MediaAsset"> | string
   version?: Prisma.StringNullableFilter<"MediaAsset"> | string | null
   altText?: Prisma.StringFilter<"MediaAsset"> | string
@@ -1013,6 +1063,8 @@ export type MediaAssetCreateWithoutProfilesInput = {
   height?: number | null
   duration?: number | null
   bytes: number
+  imageData?: runtime.Bytes | null
+  imageMimeType?: string | null
   folder: string
   version?: string | null
   altText: string
@@ -1040,6 +1092,8 @@ export type MediaAssetUncheckedCreateWithoutProfilesInput = {
   height?: number | null
   duration?: number | null
   bytes: number
+  imageData?: runtime.Bytes | null
+  imageMimeType?: string | null
   folder: string
   version?: string | null
   altText: string
@@ -1083,6 +1137,8 @@ export type MediaAssetUpdateWithoutProfilesInput = {
   height?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   duration?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   bytes?: Prisma.IntFieldUpdateOperationsInput | number
+  imageData?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  imageMimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   folder?: Prisma.StringFieldUpdateOperationsInput | string
   version?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   altText?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1110,6 +1166,8 @@ export type MediaAssetUncheckedUpdateWithoutProfilesInput = {
   height?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   duration?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   bytes?: Prisma.IntFieldUpdateOperationsInput | number
+  imageData?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  imageMimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   folder?: Prisma.StringFieldUpdateOperationsInput | string
   version?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   altText?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1137,6 +1195,8 @@ export type MediaAssetCreateManyCreatedByInput = {
   height?: number | null
   duration?: number | null
   bytes: number
+  imageData?: runtime.Bytes | null
+  imageMimeType?: string | null
   folder: string
   version?: string | null
   altText: string
@@ -1163,6 +1223,8 @@ export type MediaAssetUpdateWithoutCreatedByInput = {
   height?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   duration?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   bytes?: Prisma.IntFieldUpdateOperationsInput | number
+  imageData?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  imageMimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   folder?: Prisma.StringFieldUpdateOperationsInput | string
   version?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   altText?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1190,6 +1252,8 @@ export type MediaAssetUncheckedUpdateWithoutCreatedByInput = {
   height?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   duration?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   bytes?: Prisma.IntFieldUpdateOperationsInput | number
+  imageData?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  imageMimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   folder?: Prisma.StringFieldUpdateOperationsInput | string
   version?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   altText?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1217,6 +1281,8 @@ export type MediaAssetUncheckedUpdateManyWithoutCreatedByInput = {
   height?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   duration?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   bytes?: Prisma.IntFieldUpdateOperationsInput | number
+  imageData?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  imageMimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   folder?: Prisma.StringFieldUpdateOperationsInput | string
   version?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   altText?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1274,6 +1340,8 @@ export type MediaAssetSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   height?: boolean
   duration?: boolean
   bytes?: boolean
+  imageData?: boolean
+  imageMimeType?: boolean
   folder?: boolean
   version?: boolean
   altText?: boolean
@@ -1304,6 +1372,8 @@ export type MediaAssetSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ex
   height?: boolean
   duration?: boolean
   bytes?: boolean
+  imageData?: boolean
+  imageMimeType?: boolean
   folder?: boolean
   version?: boolean
   altText?: boolean
@@ -1332,6 +1402,8 @@ export type MediaAssetSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ex
   height?: boolean
   duration?: boolean
   bytes?: boolean
+  imageData?: boolean
+  imageMimeType?: boolean
   folder?: boolean
   version?: boolean
   altText?: boolean
@@ -1360,6 +1432,8 @@ export type MediaAssetSelectScalar = {
   height?: boolean
   duration?: boolean
   bytes?: boolean
+  imageData?: boolean
+  imageMimeType?: boolean
   folder?: boolean
   version?: boolean
   altText?: boolean
@@ -1376,7 +1450,7 @@ export type MediaAssetSelectScalar = {
   updatedAt?: boolean
 }
 
-export type MediaAssetOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "cloudinaryPublicId" | "assetId" | "secureUrl" | "resourceType" | "format" | "width" | "height" | "duration" | "bytes" | "folder" | "version" | "altText" | "title" | "caption" | "description" | "tags" | "focalX" | "focalY" | "createdById" | "usageStatus" | "deletedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["mediaAsset"]>
+export type MediaAssetOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "cloudinaryPublicId" | "assetId" | "secureUrl" | "resourceType" | "format" | "width" | "height" | "duration" | "bytes" | "imageData" | "imageMimeType" | "folder" | "version" | "altText" | "title" | "caption" | "description" | "tags" | "focalX" | "focalY" | "createdById" | "usageStatus" | "deletedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["mediaAsset"]>
 export type MediaAssetInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   createdBy?: boolean | Prisma.MediaAsset$createdByArgs<ExtArgs>
   profiles?: boolean | Prisma.MediaAsset$profilesArgs<ExtArgs>
@@ -1406,6 +1480,8 @@ export type $MediaAssetPayload<ExtArgs extends runtime.Types.Extensions.Internal
     height: number | null
     duration: number | null
     bytes: number
+    imageData: runtime.Bytes | null
+    imageMimeType: string | null
     folder: string
     version: string | null
     altText: string
@@ -1855,6 +1931,8 @@ export interface MediaAssetFieldRefs {
   readonly height: Prisma.FieldRef<"MediaAsset", 'Int'>
   readonly duration: Prisma.FieldRef<"MediaAsset", 'Float'>
   readonly bytes: Prisma.FieldRef<"MediaAsset", 'Int'>
+  readonly imageData: Prisma.FieldRef<"MediaAsset", 'Bytes'>
+  readonly imageMimeType: Prisma.FieldRef<"MediaAsset", 'String'>
   readonly folder: Prisma.FieldRef<"MediaAsset", 'String'>
   readonly version: Prisma.FieldRef<"MediaAsset", 'String'>
   readonly altText: Prisma.FieldRef<"MediaAsset", 'String'>

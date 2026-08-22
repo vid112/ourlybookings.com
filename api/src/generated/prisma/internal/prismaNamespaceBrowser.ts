@@ -420,6 +420,8 @@ export const MediaAssetScalarFieldEnum = {
   height: 'height',
   duration: 'duration',
   bytes: 'bytes',
+  imageData: 'imageData',
+  imageMimeType: 'imageMimeType',
   folder: 'folder',
   version: 'version',
   altText: 'altText',

@@ -22,6 +22,18 @@ import { CreateReportDto } from "./dto/create-report.dto";
 export class PublicController {
   constructor(private readonly prisma: PrismaService) {}
 
+  @Get("media/:storageId")
+  async media(@Param("storageId") storageId: string, @Res() response: Response) {
+    const asset = await this.prisma.mediaAsset.findFirst({
+      where: { cloudinaryPublicId: `database/${storageId}`, deletedAt: null },
+      select: { imageData: true, imageMimeType: true },
+    });
+    if (!asset?.imageData || !asset.imageMimeType) throw new NotFoundException("Image not found");
+    response.setHeader("Content-Type", asset.imageMimeType);
+    response.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    response.send(Buffer.from(asset.imageData));
+  }
+
   @Get("site")
   async site() {
     const settings = await this.prisma.siteSetting.findMany({

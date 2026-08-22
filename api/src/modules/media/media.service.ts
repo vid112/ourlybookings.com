@@ -31,9 +31,6 @@ export class MediaService {
 
   sign(dto: SignUploadDto) {
     if (!this.hasCloudinaryConfig()) {
-      if (this.config.get<string>("NODE_ENV") === "production") {
-        throw new ServiceUnavailableException("Image upload service is not configured");
-      }
       return { provider: "local" as const };
     }
     const secret = this.requireConfig("CLOUDINARY_API_SECRET");
@@ -64,7 +61,7 @@ export class MediaService {
     userId: string,
     requestOrigin: string,
   ) {
-    if (this.hasCloudinaryConfig() || this.config.get<string>("NODE_ENV") === "production") {
+    if (this.hasCloudinaryConfig()) {
       throw new ForbiddenException("Local image uploads are disabled");
     }
 
@@ -77,6 +74,32 @@ export class MediaService {
     if (!format) throw new ForbiddenException("Unsupported image format");
 
     const id = randomUUID();
+    if (this.config.get<string>("NODE_ENV") === "production") {
+      return this.prisma.mediaAsset.create({
+        data: {
+          cloudinaryPublicId: `database/${id}`,
+          assetId: `database-${id}`,
+          secureUrl: `${requestOrigin}/api/v1/public/media/${id}`,
+          resourceType: MediaResourceType.IMAGE,
+          format,
+          bytes: file.size,
+          imageData: Uint8Array.from(file.buffer),
+          imageMimeType: file.mimetype,
+          folder: "database",
+          altText,
+          tags: ["production-database-upload"],
+          createdById: userId,
+        },
+        select: {
+          id: true,
+          secureUrl: true,
+          resourceType: true,
+          width: true,
+          height: true,
+          createdAt: true,
+        },
+      });
+    }
     const fileName = `${id}.${format}`;
     const uploadDirectory = path.resolve(process.cwd(), "uploads");
     await mkdir(uploadDirectory, { recursive: true });

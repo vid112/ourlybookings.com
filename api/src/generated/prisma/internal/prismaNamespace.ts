@@ -3174,6 +3174,8 @@ export const MediaAssetScalarFieldEnum = {
   height: 'height',
   duration: 'duration',
   bytes: 'bytes',
+  imageData: 'imageData',
+  imageMimeType: 'imageMimeType',
   folder: 'folder',
   version: 'version',
   altText: 'altText',
@@ -3604,14 +3606,14 @@ export type ListEnumPromotionPlanFieldRefInput<$PrismaModel> = FieldRefInputType
  * Reference to a field of type 'Bytes'
  */
 export type BytesFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Bytes'>
-
+    
 
 
 /**
  * Reference to a field of type 'Bytes[]'
  */
 export type ListBytesFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Bytes[]'>
-
+    
 
 
 /**
@@ -3956,3 +3958,4 @@ export type PrismaAction =
  * `PrismaClient` proxy available in interactive transactions.
  */
 export type TransactionClient = Omit<DefaultPrismaClient, runtime.ITXClientDenyList>
+

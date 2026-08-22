@@ -455,6 +455,8 @@ model MediaAsset {
   height             Int?
   duration           Float?
   bytes              Int
+  imageData          Bytes?
+  imageMimeType      String?
   folder             String
   version            String?
   altText            String
