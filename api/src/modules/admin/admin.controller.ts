@@ -31,6 +31,7 @@ import {
   UpdateSeoDto,
   UpdateSettingDto,
   UpdateCategoryDto,
+  UpsertBlogPostDto,
   ModerateProfileDto,
   RankProfileDto,
   VerifyPaymentDto,
@@ -490,6 +491,59 @@ export class AdminController {
       this.prisma.redirect.findMany({ orderBy: { updatedAt: "desc" }, take: 100 }),
     ]);
     return { metadata, missingAlt, redirects };
+  }
+
+  @Get("blog")
+  async blogPosts() {
+    const posts = await this.prisma.blogPost.findMany({
+      where: { deletedAt: null },
+      orderBy: { updatedAt: "desc" },
+    });
+    const metadata = await this.prisma.seoMeta.findMany({
+      where: { entityType: "BLOG_POST", entityId: { in: posts.map((post) => post.id) } },
+    });
+    const seoById = new Map(metadata.map((seo) => [seo.entityId, seo]));
+    return posts.map((post) => ({ ...post, seo: seoById.get(post.id) ?? null }));
+  }
+
+  @Post("blog")
+  async createBlogPost(@Body() dto: UpsertBlogPostDto) {
+    const { seoTitle, metaDescription, focusKeyword, content, status, ...postData } = dto;
+    const post = await this.prisma.blogPost.create({
+      data: {
+        ...postData,
+        slug: normalizeSlug(postData.slug),
+        content: { body: content },
+        status,
+        publishedAt: status === "PUBLISHED" ? new Date() : null,
+      },
+    });
+    await this.prisma.seoMeta.create({
+      data: { entityType: "BLOG_POST", entityId: post.id, seoTitle, metaDescription, focusKeyword },
+    });
+    return post;
+  }
+
+  @Patch("blog/:id")
+  async updateBlogPost(@Param("id") id: string, @Body() dto: UpsertBlogPostDto) {
+    const { seoTitle, metaDescription, focusKeyword, content, status, ...postData } = dto;
+    const existing = await this.prisma.blogPost.findUniqueOrThrow({ where: { id } });
+    const post = await this.prisma.blogPost.update({
+      where: { id },
+      data: {
+        ...postData,
+        slug: normalizeSlug(postData.slug),
+        content: { body: content },
+        status,
+        publishedAt: status === "PUBLISHED" ? (existing.publishedAt ?? new Date()) : null,
+      },
+    });
+    await this.prisma.seoMeta.upsert({
+      where: { entityType_entityId: { entityType: "BLOG_POST", entityId: id } },
+      update: { seoTitle, metaDescription, focusKeyword },
+      create: { entityType: "BLOG_POST", entityId: id, seoTitle, metaDescription, focusKeyword },
+    });
+    return post;
   }
 
   @Put("seo/:entityType/:entityId")

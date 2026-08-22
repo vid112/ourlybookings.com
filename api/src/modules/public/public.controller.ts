@@ -251,6 +251,31 @@ export class PublicController {
     });
   }
 
+  @Get("blog")
+  async blogPosts() {
+    const posts = await this.prisma.blogPost.findMany({
+      where: { status: "PUBLISHED", deletedAt: null },
+      orderBy: { publishedAt: "desc" },
+    });
+    const metadata = await this.prisma.seoMeta.findMany({
+      where: { entityType: "BLOG_POST", entityId: { in: posts.map((post) => post.id) } },
+    });
+    const seoById = new Map(metadata.map((seo) => [seo.entityId, seo]));
+    return posts.map((post) => ({ ...post, seo: seoById.get(post.id) ?? null }));
+  }
+
+  @Get("blog/:slug")
+  async blogPost(@Param("slug") slug: string) {
+    const post = await this.prisma.blogPost.findFirst({
+      where: { slug, status: "PUBLISHED", deletedAt: null },
+    });
+    if (!post) throw new NotFoundException("Blog post not found");
+    const seo = await this.prisma.seoMeta.findUnique({
+      where: { entityType_entityId: { entityType: "BLOG_POST", entityId: post.id } },
+    });
+    return { ...post, seo };
+  }
+
   @Get("profiles/:slug")
   async profile(@Param("slug") slug: string) {
     const profile = await this.prisma.profile.findFirst({

@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { demoProfiles, indiaStates } from "@/data/india";
 import { absoluteUrl } from "@/lib/site";
+import { getBlogPosts } from "@/lib/blog";
 
 const staticRoutes = [
   "/",
@@ -23,8 +24,9 @@ const staticRoutes = [
   "/18-plus",
 ];
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
+  const blogPosts = await getBlogPosts();
   return [
     ...staticRoutes.map((route) => ({
       url: absoluteUrl(route),
@@ -50,6 +52,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       url: absoluteUrl(`/profiles/${profile.slug}`),
       lastModified: now,
       changeFrequency: "weekly" as const,
+      priority: 0.7,
+    })),
+    ...blogPosts.map((post) => ({
+      url: absoluteUrl(`/blog/${post.slug}`),
+      lastModified: post.publishedAt ? new Date(post.publishedAt) : now,
+      changeFrequency: "monthly" as const,
       priority: 0.7,
     })),
   ];

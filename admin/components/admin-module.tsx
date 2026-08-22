@@ -9,6 +9,7 @@ type ModuleName =
   | "profiles"
   | "users"
   | "categories"
+  | "blog"
   | "media"
   | "locations"
   | "seo"
@@ -122,6 +123,16 @@ type CategoryRow = {
   imageUrl?: string;
   isPublished: boolean;
   sortOrder: number;
+};
+type BlogRow = {
+  id?: string;
+  title: string;
+  slug: string;
+  excerpt: string;
+  content: { body?: string } | string;
+  authorName: string;
+  status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+  seo?: { seoTitle: string; metaDescription: string; focusKeyword?: string } | null;
 };
 
 async function request(path: string, method = "GET", body?: unknown) {
@@ -1107,6 +1118,51 @@ function CategoriesModule({ data }: { data: unknown }) {
   );
 }
 
+const emptyBlog: BlogRow = {
+  title: "",
+  slug: "",
+  excerpt: "",
+  content: { body: "" },
+  authorName: "Ourly Bookings",
+  status: "DRAFT",
+};
+
+function BlogEditor({ post }: { post: BlogRow }) {
+  const [title, setTitle] = useState(post.title);
+  const [slug, setSlug] = useState(post.slug);
+  const [excerpt, setExcerpt] = useState(post.excerpt);
+  const [content, setContent] = useState(typeof post.content === "string" ? post.content : post.content.body ?? "");
+  const [authorName, setAuthorName] = useState(post.authorName);
+  const [status, setStatus] = useState(post.status);
+  const [seoTitle, setSeoTitle] = useState(post.seo?.seoTitle ?? post.title);
+  const [metaDescription, setMetaDescription] = useState(post.seo?.metaDescription ?? post.excerpt);
+  const [focusKeyword, setFocusKeyword] = useState(post.seo?.focusKeyword ?? "");
+  const { pending, message, run } = useAction();
+  const payload = { title, slug, excerpt, content, authorName, status, seoTitle, metaDescription, focusKeyword: focusKeyword || undefined };
+  return (
+    <article className="rounded-[18px] border border-white/12 bg-surface p-5">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="text-sm font-bold">Title<input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-2 min-h-11 w-full rounded-xl border border-white/12 bg-surface-2 px-3" /></label>
+        <label className="text-sm font-bold">Slug<input value={slug} onChange={(e) => setSlug(e.target.value)} className="mt-2 min-h-11 w-full rounded-xl border border-white/12 bg-surface-2 px-3" /></label>
+        <label className="text-sm font-bold sm:col-span-2">Excerpt<textarea value={excerpt} onChange={(e) => setExcerpt(e.target.value)} className="mt-2 min-h-24 w-full rounded-xl border border-white/12 bg-surface-2 p-3" /></label>
+        <label className="text-sm font-bold sm:col-span-2">Article content<textarea value={content} onChange={(e) => setContent(e.target.value)} className="mt-2 min-h-64 w-full rounded-xl border border-white/12 bg-surface-2 p-3" /></label>
+        <label className="text-sm font-bold">Author<input value={authorName} onChange={(e) => setAuthorName(e.target.value)} className="mt-2 min-h-11 w-full rounded-xl border border-white/12 bg-surface-2 px-3" /></label>
+        <label className="text-sm font-bold">Status<select value={status} onChange={(e) => setStatus(e.target.value as BlogRow["status"])} className="mt-2 min-h-11 w-full rounded-xl border border-white/12 bg-surface-2 px-3"><option>DRAFT</option><option>PUBLISHED</option><option>ARCHIVED</option></select></label>
+        <label className="text-sm font-bold sm:col-span-2">SEO title<input value={seoTitle} onChange={(e) => setSeoTitle(e.target.value)} className="mt-2 min-h-11 w-full rounded-xl border border-white/12 bg-surface-2 px-3" /></label>
+        <label className="text-sm font-bold sm:col-span-2">Meta description<textarea value={metaDescription} onChange={(e) => setMetaDescription(e.target.value)} className="mt-2 min-h-24 w-full rounded-xl border border-white/12 bg-surface-2 p-3" /></label>
+        <label className="text-sm font-bold sm:col-span-2">Focus keyword<input value={focusKeyword} onChange={(e) => setFocusKeyword(e.target.value)} className="mt-2 min-h-11 w-full rounded-xl border border-white/12 bg-surface-2 px-3" /></label>
+      </div>
+      <button disabled={pending} onClick={() => run(() => request(post.id ? `/admin/blog/${post.id}` : "/admin/blog", post.id ? "PATCH" : "POST", payload), post.id ? "Blog post saved." : "Blog post created.")} className="mt-5 rounded-xl bg-brand px-5 py-2.5 font-bold disabled:opacity-50">{post.id ? "Save blog & SEO" : "Create blog post"}</button>
+      <Notice message={message} />
+    </article>
+  );
+}
+
+function BlogModule({ data }: { data: unknown }) {
+  const posts = Array.isArray(data) ? (data as BlogRow[]) : [];
+  return <section className="mt-10 space-y-6"><BlogEditor post={emptyBlog} />{posts.map((post) => <BlogEditor key={post.id} post={post} />)}</section>;
+}
+
 export function AdminModule({ module, initialData }: { module: ModuleName; initialData: unknown }) {
   if (initialData === null)
     return (
@@ -1118,6 +1174,7 @@ export function AdminModule({ module, initialData }: { module: ModuleName; initi
   if (module === "profiles") return <ProfilesModule data={initialData} />;
   if (module === "users") return <UsersModule data={initialData} />;
   if (module === "categories") return <CategoriesModule data={initialData} />;
+  if (module === "blog") return <BlogModule data={initialData} />;
   if (module === "media") return <MediaModule data={initialData} />;
   if (module === "locations") return <LocationsModule data={initialData} />;
   if (module === "seo") return <SeoModule data={initialData} />;

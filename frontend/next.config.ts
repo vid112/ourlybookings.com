@@ -15,6 +15,7 @@ const nextConfig: NextConfig = {
     localPatterns: [{ pathname: "/images/**" }],
     dangerouslyAllowLocalIP: true,
     remotePatterns: [
+      { protocol: "https", hostname: "api.ourlybookings.com", pathname: "/api/v1/public/media/**" },
       { protocol: "https", hostname: "res.cloudinary.com" },
       { protocol: "https", hostname: "cdn.schloka.com" },
       { protocol: "http", hostname: "localhost", port: "4000", pathname: "/uploads/**" },

@@ -20,6 +20,7 @@ import { SectionHeading } from "@/components/section-heading";
 import { indiaStates } from "@/data/india";
 import { getDirectoryOptions, getDirectoryProfiles } from "@/lib/directory";
 import { siteConfig } from "@/lib/site";
+import { getBlogPosts } from "@/lib/blog";
 
 const featuredStates = ["maharashtra", "karnataka", "delhi", "tamil-nadu", "telangana", "gujarat"];
 const stateRail = indiaStates.filter((state) => featuredStates.includes(state.slug));
@@ -71,9 +72,10 @@ const faqs = [
 ] as const;
 
 export default async function HomePage() {
-  const [directoryProfiles, directoryOptions] = await Promise.all([
+  const [directoryProfiles, directoryOptions, blogPosts] = await Promise.all([
     getDirectoryProfiles(),
     getDirectoryOptions(),
+    getBlogPosts(),
   ]);
   const featuredProfiles = directoryProfiles.slice(0, 3);
   const categoryCards = directoryOptions?.categories ?? [];
@@ -232,16 +234,16 @@ export default async function HomePage() {
               All India locations →
             </Link>
           </div>
-          <div className="mt-12 grid gap-x-10 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-10 grid grid-cols-2 gap-x-4 gap-y-8 sm:mt-12 sm:gap-x-10 sm:gap-y-12 lg:grid-cols-3">
             {stateRail.map((state) => (
               <div key={state.slug} className="border-t border-white/15 pt-5">
                 <Link
                   href={`/india/${state.slug}`}
-                  className="font-display text-2xl font-bold tracking-[-0.04em] hover:text-brand"
+                  className="font-display text-lg font-bold tracking-[-0.04em] hover:text-brand sm:text-2xl"
                 >
                   {state.name}
                 </Link>
-                <ul className="mt-5 space-y-3 text-sm text-muted">
+                <ul className="mt-4 space-y-2.5 text-xs text-muted sm:mt-5 sm:space-y-3 sm:text-sm">
                   {state.cities.slice(0, 5).map((stateCity) => (
                     <li key={stateCity.slug}>
                       <Link
@@ -379,24 +381,11 @@ export default async function HomePage() {
             </Link>
           </div>
           <div className="mt-10 grid gap-5 md:grid-cols-3">
-            {[
-              [
-                "Meeting safely for the first time",
-                "A practical consent, privacy and communication checklist.",
-              ],
-              [
-                "Protecting your privacy online",
-                "Simple steps for safer messaging and personal-data control.",
-              ],
-              [
-                "Browsing profiles by Indian city",
-                "Use state and city pages without exposing sensitive information.",
-              ],
-            ].map(([title, copy]) => (
-              <article key={title} className="surface-border rounded-[20px] bg-surface p-6">
-                <h3 className="font-display text-xl font-bold">{title}</h3>
-                <p className="mt-4 leading-7 text-muted">{copy}</p>
-                <Link href="/blog" className="mt-6 inline-block font-bold text-brand">
+            {blogPosts.slice(0, 3).map((post) => (
+              <article key={post.id} className="surface-border rounded-[20px] bg-surface p-6">
+                <h3 className="font-display text-xl font-bold">{post.title}</h3>
+                <p className="mt-4 leading-7 text-muted">{post.excerpt}</p>
+                <Link href={`/blog/${post.slug}`} className="mt-6 inline-block font-bold text-brand">
                   Read guide →
                 </Link>
               </article>
