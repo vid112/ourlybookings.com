@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { ProfileCard } from "@/components/profile-card";
+import { ProfileListItem } from "@/components/profile-list-item";
 import { getDirectoryOptions, getDirectoryProfiles } from "@/lib/directory";
 
 export const metadata: Metadata = {
@@ -45,11 +45,11 @@ export default async function ProfilesPage({ searchParams }: { searchParams: Pro
         <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Profiles" }]} />
         <div className="max-w-4xl">
           <h1 className="text-balance font-display text-5xl font-bold tracking-[-0.055em] sm:text-6xl">
-            Independent profiles worldwide
+            All independent posts
           </h1>
           <p className="mt-6 text-lg leading-8 text-muted">
-            Search approved listings by country, city, category and detailed profile preferences.
-            Every public record has completed the admin moderation workflow.
+            Search and scroll through every approved listing by country, city and category. Every
+            public record has completed the admin moderation workflow.
           </p>
         </div>
         <form
@@ -119,9 +119,9 @@ export default async function ProfilesPage({ searchParams }: { searchParams: Pro
           ) : null}
         </div>
         {profiles.length ? (
-          <section className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {profiles.slice(0, 48).map((profile) => (
-              <ProfileCard key={profile.id} profile={profile} />
+          <section className="mt-8 space-y-4 sm:space-y-5">
+            {profiles.map((profile) => (
+              <ProfileListItem key={profile.id} profile={profile} />
             ))}
           </section>
         ) : (

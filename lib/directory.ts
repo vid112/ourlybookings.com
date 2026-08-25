@@ -39,6 +39,8 @@ export type DirectoryProfile = {
   images: readonly { url: string; alt: string; title?: string }[];
   services: readonly string[];
   isDemo: boolean;
+  publishedAt?: string;
+  updatedAt?: string;
 };
 
 type ApiProfile = {
@@ -68,6 +70,8 @@ type ApiProfile = {
   contactWhatsapp?: string;
   contactTelegram?: string;
   contactEmail?: string;
+  publishedAt?: string;
+  updatedAt?: string;
   categories: { category: { name: string; slug: string } }[];
   services: { service: { name: string; slug: string } }[];
   locations: {
@@ -170,6 +174,8 @@ function fromApi(profile: ApiProfile): DirectoryProfile | null {
     images,
     services: profile.services.map((item) => item.service.name),
     isDemo: false,
+    publishedAt: profile.publishedAt,
+    updatedAt: profile.updatedAt,
   };
 }
 

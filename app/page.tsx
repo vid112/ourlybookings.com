@@ -15,7 +15,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { HeroSearch } from "@/components/hero-search";
-import { ProfileCard } from "@/components/profile-card";
+import { ProfileListItem } from "@/components/profile-list-item";
 import { SectionHeading } from "@/components/section-heading";
 import { indiaStates } from "@/data/india";
 import { getDirectoryOptions, getDirectoryProfiles } from "@/lib/directory";
@@ -77,7 +77,11 @@ export default async function HomePage() {
     getDirectoryOptions(),
     getBlogPosts(),
   ]);
-  const featuredProfiles = directoryProfiles.slice(0, 3);
+  const featuredProfiles = directoryProfiles.slice(0, 10);
+  const latestProfileUpdate = directoryProfiles.reduce<string | undefined>((latest, profile) => {
+    if (!profile.updatedAt) return latest;
+    return !latest || profile.updatedAt > latest ? profile.updatedAt : latest;
+  }, undefined);
   const categoryCards = directoryOptions?.categories ?? [];
   const structuredData = {
     "@context": "https://schema.org",
@@ -247,20 +251,46 @@ export default async function HomePage() {
 
       <section className="section-space">
         <div className="site-container">
-          <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
+          <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
             <SectionHeading
-              title="Featured independent profiles"
-              description="Published listings use authorized source images and pass the profile publication workflow."
+              title="Latest independent posts"
+              description="Browse the newest approved advertisements in a compact list. Open any post for complete details and contact options."
             />
-            <Link href="/profiles" className="shrink-0 font-bold text-brand">
-              View all profiles →
-            </Link>
+            <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
+              {latestProfileUpdate ? (
+                <p className="text-xs text-muted">
+                  Last updated:{" "}
+                  {new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" }).format(
+                    new Date(latestProfileUpdate),
+                  )}
+                </p>
+              ) : null}
+              <Link href="/profiles" className="font-bold text-brand">
+                View all posts →
+              </Link>
+            </div>
           </div>
-          <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {featuredProfiles.map((profile) => (
-              <ProfileCard key={profile.id} profile={profile} />
-            ))}
-          </div>
+          {featuredProfiles.length ? (
+            <div className="mt-9 space-y-4 sm:mt-10 sm:space-y-5">
+              {featuredProfiles.map((profile) => (
+                <ProfileListItem key={profile.id} profile={profile} />
+              ))}
+            </div>
+          ) : (
+            <div className="mt-9 rounded-[20px] border border-dashed border-white/15 p-8 text-center text-muted">
+              No approved posts are available yet.
+            </div>
+          )}
+          {directoryProfiles.length > 10 ? (
+            <div className="mt-8 text-center">
+              <Link
+                href="/profiles"
+                className="inline-flex min-h-12 items-center justify-center rounded-xl border border-brand/55 px-6 font-bold text-brand transition hover:bg-brand/10"
+              >
+                View all {directoryProfiles.length} posts →
+              </Link>
+            </div>
+          ) : null}
         </div>
       </section>
 
