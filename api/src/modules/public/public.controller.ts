@@ -246,7 +246,6 @@ export class PublicController {
           : {}),
       },
       orderBy: [{ adminPriority: "desc" }, { promotionAmount: "desc" }, { publishedAt: "desc" }],
-      take: 48,
       select: this.publicProfileSelect(),
     });
   }
@@ -408,15 +407,17 @@ export class PublicController {
       placeOfService: true,
       availabilitySlots: true,
       verificationStatus: true,
+      publishedAt: true,
+      updatedAt: true,
       languages: true,
       shortIntro: true,
+      contactPhone: true,
+      contactWhatsapp: true,
       ...(detailed
         ? {
             fullBio: true,
             availability: true,
             pricingNotes: true,
-            contactPhone: true,
-            contactWhatsapp: true,
             contactTelegram: true,
             contactEmail: true,
           }
