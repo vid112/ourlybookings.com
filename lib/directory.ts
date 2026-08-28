@@ -296,3 +296,29 @@ export async function getDirectoryLocation(stateSlug: string, citySlug?: string)
     : `/public/locations/${encodeURIComponent(stateSlug)}`;
   return publicApi<DirectoryState>(path);
 }
+export type SitemapProfile = {
+  slug: string;
+  updatedAt?: string;
+};
+
+export async function getProfilesForSitemap(): Promise<SitemapProfile[]> {
+  const profiles = await publicApi<ApiProfile[]>(
+    "/public/profiles",
+    true
+  );
+
+  if (!profiles) {
+    return [];
+  }
+
+  return profiles
+    .filter(
+      (profile) =>
+        typeof profile.slug === "string" &&
+        profile.slug.trim().length > 0
+    )
+    .map((profile) => ({
+      slug: profile.slug,
+      updatedAt: profile.updatedAt ?? profile.publishedAt,
+    }));
+}
