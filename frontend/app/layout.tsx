@@ -22,9 +22,6 @@ export const metadata: Metadata = {
   title: {
     default: "Ourly Bookings | Independent Profiles Worldwide",
     template: "%s | Ourly Bookings",
-    verification: {
-  google: "0AJ6XMPHikSfGKHp01VGEOmnUlXznbUmtdXwKAFiXqE",
-},
   },
   description: siteConfig.description,
   applicationName: siteConfig.name,
@@ -52,6 +49,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       className={`${sora.variable} ${manrope.variable}`}
       data-scroll-behavior="smooth"
     >
+      <head>
+        <meta
+          name="google-site-verification"
+          content="0AJ6XMPHikSfGKHp01VGEOmnUlXznbUmtdXwKAFiXqE"
+        />
+      </head>
+
       <body>
         <a
           href="#main-content"
@@ -59,8 +63,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         >
           Skip to content
         </a>
+
         <Header />
+
         <main id="main-content">{children}</main>
+
         <Footer />
       </body>
     </html>
