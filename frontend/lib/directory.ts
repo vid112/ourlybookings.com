@@ -285,11 +285,19 @@ export async function getCategoryLocations(slug: string) {
   );
 }
 
-export async function getDirectoryProfile(slug: string) {
-  const profile = await publicApi<ApiProfile>(`/public/profiles/${encodeURIComponent(slug)}`, true);
-  if (profile) return fromApi(profile);
-  const demo = getProfile(slug);
-  return demo ? fromDemo(demo) : null;
+export async function getDirectoryProfile(
+  slug: string
+): Promise<DirectoryProfile | null> {
+  const profile = await publicApi<ApiProfile>(
+    `/public/profiles/${encodeURIComponent(slug)}`,
+    true
+  );
+
+  if (!profile) {
+    return null;
+  }
+
+  return fromApi(profile);
 }
 
 export async function getDirectoryLocations() {
