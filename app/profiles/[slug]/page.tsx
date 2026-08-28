@@ -1,3 +1,4 @@
+import type { DirectoryProfileImage } from "@/lib/directory";
 import type { Metadata } from "next";
 import {
   BadgeCheck,
@@ -61,7 +62,8 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
         />
         <article className="grid overflow-hidden rounded-[22px] border border-white/12 bg-surface shadow-2xl shadow-black/30 sm:rounded-[28px] lg:grid-cols-[0.95fr_1.05fr]">
           <div className="grid gap-2 bg-surface-2 p-2 sm:grid-cols-2">
-            {profile.images.slice(0, 5).map((image, index) => (
+            {profile.images.map(
+  (image: DirectoryProfileImage, index: number) => (
               <div
                 key={image.url}
                 className={`relative overflow-hidden rounded-2xl bg-black ${index === 0 ? "min-h-[390px] sm:col-span-2 sm:min-h-[520px]" : "min-h-56 sm:min-h-64"}`}
