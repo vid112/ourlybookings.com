@@ -22,6 +22,9 @@ export const metadata: Metadata = {
   title: {
     default: "Ourly Bookings | Independent Profiles Worldwide",
     template: "%s | Ourly Bookings",
+    verification: {
+  google: "0AJ6XMPHikSfGKHp01VGEOmnUlXznbUmtdXwKAFiXqE",
+},
   },
   description: siteConfig.description,
   applicationName: siteConfig.name,
