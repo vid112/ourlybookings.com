@@ -1,7 +1,11 @@
 import type { MetadataRoute } from "next";
-import { demoProfiles, indiaStates } from "@/data/india";
+
+import { indiaStates } from "@/data/india";
 import { absoluteUrl } from "@/lib/site";
 import { getBlogPosts } from "@/lib/blog";
+import { getPublicProfilesForSitemap } from "@/lib/profiles-sitemap";
+
+export const revalidate = 3600;
 
 const staticRoutes = [
   "/",
@@ -25,40 +29,46 @@ const staticRoutes = [
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const now = new Date();
-  const blogPosts = await getBlogPosts();
+  const [profiles, blogPosts] = await Promise.all([
+    getPublicProfilesForSitemap(),
+    getBlogPosts(),
+  ]);
+
+  const staticPages: MetadataRoute.Sitemap = staticRoutes.map((route) => ({
+    url: absoluteUrl(route),
+  }));
+
+  const statePages: MetadataRoute.Sitemap = indiaStates.map((state) => ({
+    url: absoluteUrl(`/india/${state.slug}`),
+  }));
+
+  const cityPages: MetadataRoute.Sitemap = indiaStates.flatMap((state) =>
+    state.cities.map((city) => ({
+      url: absoluteUrl(`/india/${state.slug}/${city.slug}`),
+    }))
+  );
+
+  const profilePages: MetadataRoute.Sitemap = profiles.map((profile) => ({
+    url: absoluteUrl(`/profiles/${profile.slug}`),
+
+    ...(profile.updatedAt && {
+      lastModified: new Date(profile.updatedAt),
+    }),
+  }));
+
+  const blogPages: MetadataRoute.Sitemap = blogPosts.map((post) => ({
+    url: absoluteUrl(`/blog/${post.slug}`),
+
+    ...(post.publishedAt && {
+      lastModified: new Date(post.publishedAt),
+    }),
+  }));
+
   return [
-    ...staticRoutes.map((route) => ({
-      url: absoluteUrl(route),
-      lastModified: now,
-      changeFrequency: route === "/" ? ("daily" as const) : ("monthly" as const),
-      priority: route === "/" ? 1 : 0.7,
-    })),
-    ...indiaStates.map((state) => ({
-      url: absoluteUrl(`/india/${state.slug}`),
-      lastModified: now,
-      changeFrequency: "weekly" as const,
-      priority: 0.8,
-    })),
-    ...indiaStates.flatMap((state) =>
-      state.cities.map((stateCity) => ({
-        url: absoluteUrl(`/india/${state.slug}/${stateCity.slug}`),
-        lastModified: now,
-        changeFrequency: "weekly" as const,
-        priority: 0.7,
-      })),
-    ),
-    ...demoProfiles.map((profile) => ({
-      url: absoluteUrl(`/profiles/${profile.slug}`),
-      lastModified: now,
-      changeFrequency: "weekly" as const,
-      priority: 0.7,
-    })),
-    ...blogPosts.map((post) => ({
-      url: absoluteUrl(`/blog/${post.slug}`),
-      lastModified: post.publishedAt ? new Date(post.publishedAt) : now,
-      changeFrequency: "monthly" as const,
-      priority: 0.7,
-    })),
+    ...staticPages,
+    ...statePages,
+    ...cityPages,
+    ...profilePages,
+    ...blogPages,
   ];
 }
