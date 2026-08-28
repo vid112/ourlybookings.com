@@ -1,4 +1,4 @@
-import { demoProfiles, getProfile, indiaStates } from "@/data/india";
+import { indiaStates } from "@/data/india";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
 
@@ -179,29 +179,6 @@ function fromApi(profile: ApiProfile): DirectoryProfile | null {
   };
 }
 
-function fromDemo(profile: (typeof demoProfiles)[number]): DirectoryProfile {
-  return {
-    id: profile.id,
-    name: profile.name,
-    slug: profile.slug,
-    age: profile.age,
-    category: profile.category,
-    city: profile.city,
-    citySlug: profile.citySlug,
-    state: profile.state,
-    stateSlug: profile.stateSlug,
-    languages: profile.languages,
-    shortBio: profile.shortBio,
-    fullBio: profile.fullBio,
-    availability: profile.availability,
-    image: profile.image,
-    imageAlt: profile.imageAlt,
-    images: [{ url: profile.image, alt: profile.imageAlt }],
-    services: [],
-    isDemo: true,
-  };
-}
-
 export async function getDirectoryProfiles(filters?: {
   q?: string;
   country?: string;
@@ -224,17 +201,21 @@ export async function getDirectoryProfiles(filters?: {
   // Moderated listings must become visible as soon as an administrator approves
   // them. Keeping this request out of Next's data cache also makes removals and
   // rejection changes take effect immediately on every directory page.
-  const profiles = await publicApi<ApiProfile[]>(`/public/profiles?${search.toString()}`, true);
-  if (profiles)
-    return profiles.map(fromApi).filter((profile): profile is DirectoryProfile => Boolean(profile));
-  return demoProfiles
-    .filter(
-      (profile) =>
-        (!filters?.state || profile.stateSlug === filters.state) &&
-        (!filters?.city || profile.citySlug === filters.city) &&
-        (!filters?.category || profile.category.toLowerCase() === filters.category.toLowerCase()),
-    )
-    .map(fromDemo);
+const profiles = await publicApi<ApiProfile[]>(
+  `/public/profiles?${search.toString()}`,
+  true
+);
+
+if (!profiles) {
+  return [];
+}
+
+return profiles
+  .map(fromApi)
+  .filter(
+    (profile): profile is DirectoryProfile =>
+      Boolean(profile)
+  );
 }
 
 export async function getDirectoryOptions() {
