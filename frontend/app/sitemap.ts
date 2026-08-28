@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 import { indiaStates } from "@/data/india";
 import { absoluteUrl } from "@/lib/site";
 import { getBlogPosts } from "@/lib/blog";
-import { getPublicProfilesForSitemap } from "@/lib/profiles-sitemap";
+import { getProfilesForSitemap } from "@/lib/directory";
 
 export const revalidate = 3600;
 
@@ -22,7 +22,6 @@ const staticRoutes = [
   "/privacy",
   "/content-policy",
   "/disclaimer",
-  "/report-content",
   "/anti-trafficking",
   "/consent-takedown",
   "/18-plus",
@@ -30,7 +29,7 @@ const staticRoutes = [
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [profiles, blogPosts] = await Promise.all([
-    getPublicProfilesForSitemap(),
+    getProfilesForSitemap(),
     getBlogPosts(),
   ]);
 
@@ -50,7 +49,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const profilePages: MetadataRoute.Sitemap = profiles.map((profile) => ({
     url: absoluteUrl(`/profiles/${profile.slug}`),
-
     ...(profile.updatedAt && {
       lastModified: new Date(profile.updatedAt),
     }),
@@ -58,7 +56,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const blogPages: MetadataRoute.Sitemap = blogPosts.map((post) => ({
     url: absoluteUrl(`/blog/${post.slug}`),
-
     ...(post.publishedAt && {
       lastModified: new Date(post.publishedAt),
     }),
