@@ -116,7 +116,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
             </p>
             {profile.services.length ? (
               <div className="mt-5 flex flex-wrap gap-2 sm:mt-8">
-                {profile.services.map((service) => (
+                {profile.services.map((service: string) => (
                   <span
                     key={service}
                     className="rounded-full border border-white/12 bg-surface-2 px-3 py-1.5 text-sm text-muted"
