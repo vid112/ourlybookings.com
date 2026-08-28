@@ -19,7 +19,6 @@ import { ProfileListItem } from "@/components/profile-list-item";
 import { SectionHeading } from "@/components/section-heading";
 import { indiaStates } from "@/data/india";
 import { getDirectoryOptions, getDirectoryProfiles } from "@/lib/directory";
-import type { DirectoryProfileImage } from "@/lib/directory";
 import { siteConfig } from "@/lib/site";
 import { getBlogPosts } from "@/lib/blog";
 
