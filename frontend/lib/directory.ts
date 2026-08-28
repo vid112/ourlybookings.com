@@ -2,6 +2,12 @@ import { indiaStates } from "@/data/india";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
 
+export type DirectoryProfileImage = {
+  url: string;
+  alt: string;
+  title?: string;
+};
+
 export type DirectoryProfile = {
   id: string;
   name: string;
@@ -36,7 +42,7 @@ export type DirectoryProfile = {
   contactEmail?: string;
   image: string;
   imageAlt: string;
-  images: readonly { url: string; alt: string; title?: string }[];
+  images: readonly DirectoryProfileImage[];
   services: readonly string[];
   isDemo: boolean;
   publishedAt?: string;
