@@ -188,7 +188,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
             </details>
             {profile.availabilitySlots?.length ? (
               <div className="mt-5 flex flex-wrap gap-2 sm:mt-6">
-                {profile.availabilitySlots.map((slot) => (
+                {profile.availabilitySlots.map((slot: string) => (
                   <span
                     key={slot}
                     className="rounded-full border border-brand/35 bg-brand/10 px-3 py-1.5 text-sm"
