@@ -50,10 +50,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       data-scroll-behavior="smooth"
     >
       <head>
-        <meta
-          name="google-site-verification"
-          content="0AJ6XMPHikSfGKHp01VGEOmnUlXznbUmtdXwKAFiXqE"
-        />
+        <meta name="google-site-verification" content="0AJ6XMPHikSfGKHp01VGEOmnUlXznbUmtdXwKAFiXqE" />
       </head>
 
       <body>
