@@ -4,8 +4,8 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { Phone, MessageCircle, MapPin, ShieldCheck } from "lucide-react";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { getCity, getCityProfiles, getState, indiaStates } from "@/data/india";
-import { getDirectoryLocation, getDirectoryProfiles } from "@/lib/directory";
+import { getCity, getState, indiaStates } from "@/data/india";
+import { getDirectoryProfiles } from "@/lib/directory";
 
 type CityPageProps = {
   params: Promise<{ stateSlug: string; citySlug: string }>;
@@ -22,10 +22,8 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: CityPageProps): Promise<Metadata> {
   const { stateSlug, citySlug } = await params;
-  const apiLocation = await getDirectoryLocation(stateSlug, citySlug);
-  const fallbackCity = getCity(stateSlug, citySlug);
-  const city = apiLocation?.city ?? fallbackCity;
-  const state = apiLocation?.state ?? getState(stateSlug);
+  const city = getCity(stateSlug, citySlug);
+  const state = getState(stateSlug);
 
   if (!city || !state) return {};
 
@@ -50,19 +48,12 @@ export async function generateMetadata({ params }: CityPageProps): Promise<Metad
 
 export default async function CityPage({ params }: CityPageProps) {
   const { stateSlug, citySlug } = await params;
-  const [apiLocation, apiProfiles] = await Promise.all([
-    getDirectoryLocation(stateSlug, citySlug),
-    getDirectoryProfiles({ state: stateSlug, city: citySlug }),
-  ]);
-  const fallbackCity = getCity(stateSlug, citySlug);
-  const fallbackState = getState(stateSlug);
-  const city = apiLocation?.city ?? fallbackCity;
-  const state = apiLocation?.state ?? fallbackState;
+  const city = getCity(stateSlug, citySlug);
+  const state = getState(stateSlug);
 
   if (!city || !state) notFound();
 
-  const fallbackProfiles = getCityProfiles(stateSlug, citySlug);
-  const profiles = apiProfiles.length > 0 ? apiProfiles : fallbackProfiles;
+  const apiProfiles = await getDirectoryProfiles({ state: stateSlug, city: citySlug });
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -128,74 +119,85 @@ export default async function CityPage({ params }: CityPageProps) {
         </div>
 
         <div className="mt-6 space-y-4">
-          {profiles.length > 0 ? (
-            profiles.map((profile) => (
-              <div
-                key={profile.id}
-                className="group relative flex flex-col sm:flex-row overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02] transition hover:border-brand/60 hover:bg-white/[0.04]"
-              >
-                <span className="absolute left-3 top-3 z-10 rounded-md bg-brand px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white">
-                  VIP Verified
-                </span>
+          {apiProfiles.length > 0 ? (
+            apiProfiles.map((profile: any) => {
+              const displayImage =
+                profile.images?.[0]?.url ||
+                profile.avatarUrl ||
+                profile.heroImageUrl ||
+                "/images/hero-lounge.png";
+              const contactPhone = profile.phone || profile.contactNumber || "9999999999";
+              const contactWhatsApp = (profile.whatsappNumber || contactPhone).replace(/[^0-9]/g, "");
 
-                <div className="relative aspect-[4/3] w-full sm:w-64 sm:shrink-0 bg-black">
-                  <Image
-                    src={profile.images?.[0]?.url || profile.avatarUrl || "/images/hero-lounge.png"}
-                    alt={profile.title || `${profile.name} - Call girl in ${city.name}`}
-                    fill
-                    sizes="(max-width: 640px) 100vw, 260px"
-                    className="object-cover"
-                  />
-                  <span className="absolute bottom-2 left-2 rounded bg-black/75 px-1.5 py-0.5 text-[10px] text-white">
-                    📷 {profile.images?.length || 1}
+              return (
+                <div
+                  key={profile.id}
+                  className="group relative flex flex-col sm:flex-row overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02] transition hover:border-brand/60 hover:bg-white/[0.04]"
+                >
+                  <span className="absolute left-3 top-3 z-10 rounded-md bg-brand px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white">
+                    VIP Verified
                   </span>
-                </div>
 
-                <div className="flex flex-1 flex-col justify-between p-4 sm:p-5">
-                  <div>
-                    <Link
-                      href={`/profiles/${profile.slug || profile.id}`}
-                      className="font-display text-base font-bold uppercase tracking-tight text-[#ff3366] transition group-hover:underline sm:text-lg"
-                    >
-                      {profile.title || `FULL CASH PAYMENT NO ADVANCE CALL GIRL SERVICE ${city.name.toUpperCase()}`}
-                    </Link>
-
-                    <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-muted">
-                      {profile.about ||
-                        `VIP door-step outcall and incall service in ${city.name}. Genuine independent companion with no advance payment fraud.`}
-                    </p>
-
-                    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/70">
-                      <span>👤 {profile.age || 22} Years</span>
-                      <span>📍 {city.name} {profile.locality ? `/ ${profile.locality}` : ""}</span>
-                      <span>🇮🇳 Indian</span>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-3">
-                    <span className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
-                      <ShieldCheck size={14} /> Zero Advance Payment
+                  <div className="relative aspect-[4/3] w-full sm:w-64 sm:shrink-0 bg-black">
+                    <Image
+                      src={displayImage}
+                      alt={profile.title || `${profile.name || "Companion"} - Call girl in ${city.name}`}
+                      fill
+                      sizes="(max-width: 640px) 100vw, 260px"
+                      className="object-cover"
+                    />
+                    <span className="absolute bottom-2 left-2 rounded bg-black/75 px-1.5 py-0.5 text-[10px] text-white">
+                      📷 {profile.images?.length || 1}
                     </span>
-                    <div className="flex items-center gap-2">
-                      <a
-                        href={`https://wa.me/${(profile.whatsappNumber || profile.phone || "919999999999").replace(/[^0-9]/g, "")}?text=Hi%20I%20saw%20your%20listing%20for%20${city.name}%20on%20OurlyBookings`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex h-9 items-center gap-1.5 rounded-full bg-emerald-600 px-3.5 text-xs font-bold text-white transition hover:bg-emerald-500"
+                  </div>
+
+                  <div className="flex flex-1 flex-col justify-between p-4 sm:p-5">
+                    <div>
+                      <Link
+                        href={`/profiles/${profile.slug || profile.id}`}
+                        className="font-display text-base font-bold uppercase tracking-tight text-[#ff3366] transition group-hover:underline sm:text-lg"
                       >
-                        <MessageCircle size={15} /> WhatsApp
-                      </a>
-                      <a
-                        href={`tel:${profile.phone || "9999999999"}`}
-                        className="flex h-9 items-center gap-1.5 rounded-full bg-brand px-3.5 text-xs font-bold text-white transition hover:brightness-110"
-                      >
-                        <Phone size={15} /> Call
-                      </a>
+                        {profile.title || `FULL CASH PAYMENT NO ADVANCE CALL GIRL SERVICE ${city.name.toUpperCase()}`}
+                      </Link>
+
+                      <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-muted">
+                        {profile.about ||
+                          profile.description ||
+                          `VIP door-step outcall and incall service in ${city.name}. Genuine independent companion with no advance payment fraud.`}
+                      </p>
+
+                      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/70">
+                        <span>👤 {profile.age || 22} Years</span>
+                        <span>📍 {city.name} {profile.locality ? `/ ${profile.locality}` : ""}</span>
+                        <span>🇮🇳 Indian</span>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-3">
+                      <span className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
+                        <ShieldCheck size={14} /> Zero Advance Payment
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={`https://wa.me/${contactWhatsApp}?text=Hi%20I%20saw%20your%20listing%20for%20${city.name}%20on%20OurlyBookings`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex h-9 items-center gap-1.5 rounded-full bg-emerald-600 px-3.5 text-xs font-bold text-white transition hover:bg-emerald-500"
+                        >
+                          <MessageCircle size={15} /> WhatsApp
+                        </a>
+                        <a
+                          href={`tel:${contactPhone}`}
+                          className="flex h-9 items-center gap-1.5 rounded-full bg-brand px-3.5 text-xs font-bold text-white transition hover:brightness-110"
+                        >
+                          <Phone size={15} /> Call
+                        </a>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           ) : (
             <div className="rounded-2xl border border-dashed border-white/15 p-10 text-center text-muted">
               No approved ads in {city.name} right now. Click "Post Your Ad" to publish the first listing!
@@ -239,3 +241,5 @@ export default async function CityPage({ params }: CityPageProps) {
     </div>
   );
 }
+
+export const dynamic = "force-dynamic";
