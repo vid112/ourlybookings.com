@@ -9,8 +9,11 @@ import {
   Post,
   Put,
   Req,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiCookieAuth, ApiTags } from "@nestjs/swagger";
 import { Prisma } from "../../generated/prisma/client";
 import { EntityType } from "../../generated/prisma/enums";
@@ -28,11 +31,19 @@ import {
   UpdateSeoDto,
   UpdateSettingDto,
   UpdateCategoryDto,
+  UpsertBlogPostDto,
   ModerateProfileDto,
   RankProfileDto,
   VerifyPaymentDto,
 } from "./dto/admin.dto";
 import { CreateProfileDto, UpdateProfileDto } from "./dto/profile.dto";
+
+type UploadedCategoryImage = {
+  buffer: Buffer;
+  mimetype: string;
+  originalname: string;
+  size: number;
+};
 
 @ApiTags("admin")
 @ApiCookieAuth("ourly_access")
@@ -107,12 +118,66 @@ export class AdminController {
 
   @Get("categories")
   categories() {
-    return this.prisma.category.findMany({ orderBy: { sortOrder: "asc" } });
+    return this.prisma.category.findMany({
+      orderBy: { sortOrder: "asc" },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        icon: true,
+        imageUrl: true,
+        sortOrder: true,
+        isPublished: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
   }
 
   @Patch("categories/:id")
   updateCategory(@Param("id") id: string, @Body() dto: UpdateCategoryDto) {
     return this.prisma.category.update({ where: { id }, data: dto });
+  }
+
+  @Post("categories/:id/image")
+  @UseInterceptors(
+    FileInterceptor("file", {
+      limits: { fileSize: 8 * 1024 * 1024, files: 1 },
+      fileFilter: (_request, file, callback) => {
+        const allowed = ["image/jpeg", "image/png", "image/webp"];
+        callback(
+          allowed.includes(file.mimetype)
+            ? null
+            : new BadRequestException("Only JPG, PNG and WebP images are allowed"),
+          allowed.includes(file.mimetype),
+        );
+      },
+    }),
+  )
+  async uploadCategoryImage(
+    @Param("id") id: string,
+    @UploadedFile() file: UploadedCategoryImage | undefined,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    if (!file) throw new BadRequestException("Select an image to upload");
+    const category = await this.prisma.category.findUniqueOrThrow({ where: { id } });
+    const forwardedProtocol = request.headers["x-forwarded-proto"];
+    const protocol =
+      typeof forwardedProtocol === "string"
+        ? forwardedProtocol.split(",")[0]?.trim()
+        : request.protocol;
+    const version = Date.now();
+    const imageUrl = `${protocol}://${request.get("host")}/api/v1/public/categories/${category.slug}/image?v=${version}`;
+    return this.prisma.category.update({
+      where: { id },
+      data: {
+        imageData: new Uint8Array(file.buffer),
+        imageMimeType: file.mimetype,
+        imageUrl,
+      },
+      select: { id: true, imageUrl: true, updatedAt: true },
+    });
   }
 
   @Get("profiles")
@@ -426,6 +491,59 @@ export class AdminController {
       this.prisma.redirect.findMany({ orderBy: { updatedAt: "desc" }, take: 100 }),
     ]);
     return { metadata, missingAlt, redirects };
+  }
+
+  @Get("blog")
+  async blogPosts() {
+    const posts = await this.prisma.blogPost.findMany({
+      where: { deletedAt: null },
+      orderBy: { updatedAt: "desc" },
+    });
+    const metadata = await this.prisma.seoMeta.findMany({
+      where: { entityType: "BLOG_POST", entityId: { in: posts.map((post) => post.id) } },
+    });
+    const seoById = new Map(metadata.map((seo) => [seo.entityId, seo]));
+    return posts.map((post) => ({ ...post, seo: seoById.get(post.id) ?? null }));
+  }
+
+  @Post("blog")
+  async createBlogPost(@Body() dto: UpsertBlogPostDto) {
+    const { seoTitle, metaDescription, focusKeyword, content, status, ...postData } = dto;
+    const post = await this.prisma.blogPost.create({
+      data: {
+        ...postData,
+        slug: normalizeSlug(postData.slug),
+        content: { body: content },
+        status,
+        publishedAt: status === "PUBLISHED" ? new Date() : null,
+      },
+    });
+    await this.prisma.seoMeta.create({
+      data: { entityType: "BLOG_POST", entityId: post.id, seoTitle, metaDescription, focusKeyword },
+    });
+    return post;
+  }
+
+  @Patch("blog/:id")
+  async updateBlogPost(@Param("id") id: string, @Body() dto: UpsertBlogPostDto) {
+    const { seoTitle, metaDescription, focusKeyword, content, status, ...postData } = dto;
+    const existing = await this.prisma.blogPost.findUniqueOrThrow({ where: { id } });
+    const post = await this.prisma.blogPost.update({
+      where: { id },
+      data: {
+        ...postData,
+        slug: normalizeSlug(postData.slug),
+        content: { body: content },
+        status,
+        publishedAt: status === "PUBLISHED" ? (existing.publishedAt ?? new Date()) : null,
+      },
+    });
+    await this.prisma.seoMeta.upsert({
+      where: { entityType_entityId: { entityType: "BLOG_POST", entityId: id } },
+      update: { seoTitle, metaDescription, focusKeyword },
+      create: { entityType: "BLOG_POST", entityId: id, seoTitle, metaDescription, focusKeyword },
+    });
+    return post;
   }
 
   @Put("seo/:entityType/:entityId")

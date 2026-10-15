@@ -7,9 +7,11 @@ import {
   Param,
   Post,
   Query,
+  Res,
 } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { Throttle, minutes } from "@nestjs/throttler";
+import type { Response } from "express";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AnalyticsEventDto } from "./dto/analytics-event.dto";
 import { CreateLeadDto } from "./dto/create-lead.dto";
@@ -19,6 +21,18 @@ import { CreateReportDto } from "./dto/create-report.dto";
 @Controller("public")
 export class PublicController {
   constructor(private readonly prisma: PrismaService) {}
+
+  @Get("media/:storageId")
+  async media(@Param("storageId") storageId: string, @Res() response: Response) {
+    const asset = await this.prisma.mediaAsset.findFirst({
+      where: { cloudinaryPublicId: `database/${storageId}`, deletedAt: null },
+      select: { imageData: true, imageMimeType: true },
+    });
+    if (!asset?.imageData || !asset.imageMimeType) throw new NotFoundException("Image not found");
+    response.setHeader("Content-Type", asset.imageMimeType);
+    response.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    response.send(Buffer.from(asset.imageData));
+  }
 
   @Get("site")
   async site() {
@@ -30,7 +44,8 @@ export class PublicController {
   }
 
   @Get("ad-options")
-  async adOptions() {
+  async adOptions(@Res({ passthrough: true }) response: Response) {
+    response.setHeader("Cache-Control", "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400");
     const [countries, categories, services] = await Promise.all([
       this.prisma.country.findMany({
         orderBy: { name: "asc" },
@@ -85,6 +100,24 @@ export class PublicController {
       orderBy: { sortOrder: "asc" },
       select: { id: true, name: true, slug: true, description: true, imageUrl: true },
     });
+  }
+
+  @Get("categories/:slug/image")
+  async categoryImage(@Param("slug") slug: string, @Res() response: Response) {
+    const category = await this.prisma.category.findUnique({
+      where: { slug },
+      select: { imageData: true, imageMimeType: true, updatedAt: true },
+    });
+    if (!category?.imageData || !category.imageMimeType) {
+      throw new NotFoundException("Category image not found");
+    }
+    response.set({
+      "Content-Type": category.imageMimeType,
+      "Content-Length": String(category.imageData.byteLength),
+      "Cache-Control": "public, max-age=31536000, immutable",
+      "Last-Modified": category.updatedAt.toUTCString(),
+    });
+    response.send(Buffer.from(category.imageData));
   }
 
   @Get("categories/:slug/locations")
@@ -213,9 +246,33 @@ export class PublicController {
           : {}),
       },
       orderBy: [{ adminPriority: "desc" }, { promotionAmount: "desc" }, { publishedAt: "desc" }],
-      take: 48,
       select: this.publicProfileSelect(),
     });
+  }
+
+  @Get("blog")
+  async blogPosts() {
+    const posts = await this.prisma.blogPost.findMany({
+      where: { status: "PUBLISHED", deletedAt: null },
+      orderBy: { publishedAt: "desc" },
+    });
+    const metadata = await this.prisma.seoMeta.findMany({
+      where: { entityType: "BLOG_POST", entityId: { in: posts.map((post) => post.id) } },
+    });
+    const seoById = new Map(metadata.map((seo) => [seo.entityId, seo]));
+    return posts.map((post) => ({ ...post, seo: seoById.get(post.id) ?? null }));
+  }
+
+  @Get("blog/:slug")
+  async blogPost(@Param("slug") slug: string) {
+    const post = await this.prisma.blogPost.findFirst({
+      where: { slug, status: "PUBLISHED", deletedAt: null },
+    });
+    if (!post) throw new NotFoundException("Blog post not found");
+    const seo = await this.prisma.seoMeta.findUnique({
+      where: { entityType_entityId: { entityType: "BLOG_POST", entityId: post.id } },
+    });
+    return { ...post, seo };
   }
 
   @Get("profiles/:slug")
@@ -350,15 +407,17 @@ export class PublicController {
       placeOfService: true,
       availabilitySlots: true,
       verificationStatus: true,
+      publishedAt: true,
+      updatedAt: true,
       languages: true,
       shortIntro: true,
+      contactPhone: true,
+      contactWhatsapp: true,
       ...(detailed
         ? {
             fullBio: true,
             availability: true,
             pricingNotes: true,
-            contactPhone: true,
-            contactWhatsapp: true,
             contactTelegram: true,
             contactEmail: true,
           }

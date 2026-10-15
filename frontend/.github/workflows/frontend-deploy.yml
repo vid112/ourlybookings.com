@@ -1,0 +1,30 @@
+name: Create frontend deployment branch
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/build-india-directory
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-deploy.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  create-frontend-branch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create frontend-only branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git subtree split --prefix=frontend -b frontend-deploy
+          git push origin frontend-deploy --force

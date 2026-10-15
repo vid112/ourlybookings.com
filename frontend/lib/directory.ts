@@ -1,6 +1,12 @@
-import { demoProfiles, getProfile } from "@/data/india";
+import { indiaStates } from "@/data/india";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
+
+export type DirectoryProfileImage = {
+  url: string;
+  alt: string;
+  title?: string;
+};
 
 export type DirectoryProfile = {
   id: string;
@@ -36,9 +42,11 @@ export type DirectoryProfile = {
   contactEmail?: string;
   image: string;
   imageAlt: string;
-  images: readonly { url: string; alt: string; title?: string }[];
+  images: readonly DirectoryProfileImage[];
   services: readonly string[];
   isDemo: boolean;
+  publishedAt?: string;
+  updatedAt?: string;
 };
 
 type ApiProfile = {
@@ -68,6 +76,8 @@ type ApiProfile = {
   contactWhatsapp?: string;
   contactTelegram?: string;
   contactEmail?: string;
+  publishedAt?: string;
+  updatedAt?: string;
   categories: { category: { name: string; slug: string } }[];
   services: { service: { name: string; slug: string } }[];
   locations: {
@@ -170,29 +180,8 @@ function fromApi(profile: ApiProfile): DirectoryProfile | null {
     images,
     services: profile.services.map((item) => item.service.name),
     isDemo: false,
-  };
-}
-
-function fromDemo(profile: (typeof demoProfiles)[number]): DirectoryProfile {
-  return {
-    id: profile.id,
-    name: profile.name,
-    slug: profile.slug,
-    age: profile.age,
-    category: profile.category,
-    city: profile.city,
-    citySlug: profile.citySlug,
-    state: profile.state,
-    stateSlug: profile.stateSlug,
-    languages: profile.languages,
-    shortBio: profile.shortBio,
-    fullBio: profile.fullBio,
-    availability: profile.availability,
-    image: profile.image,
-    imageAlt: profile.imageAlt,
-    images: [{ url: profile.image, alt: profile.imageAlt }],
-    services: [],
-    isDemo: true,
+    publishedAt: profile.publishedAt,
+    updatedAt: profile.updatedAt,
   };
 }
 
@@ -218,21 +207,66 @@ export async function getDirectoryProfiles(filters?: {
   // Moderated listings must become visible as soon as an administrator approves
   // them. Keeping this request out of Next's data cache also makes removals and
   // rejection changes take effect immediately on every directory page.
-  const profiles = await publicApi<ApiProfile[]>(`/public/profiles?${search.toString()}`, true);
-  if (profiles)
-    return profiles.map(fromApi).filter((profile): profile is DirectoryProfile => Boolean(profile));
-  return demoProfiles
-    .filter(
-      (profile) =>
-        (!filters?.state || profile.stateSlug === filters.state) &&
-        (!filters?.city || profile.citySlug === filters.city) &&
-        (!filters?.category || profile.category.toLowerCase() === filters.category.toLowerCase()),
-    )
-    .map(fromDemo);
+const profiles = await publicApi<ApiProfile[]>(
+  `/public/profiles?${search.toString()}`,
+  true
+);
+
+if (!profiles) {
+  return [];
+}
+
+return profiles
+  .map(fromApi)
+  .filter(
+    (profile): profile is DirectoryProfile =>
+      Boolean(profile)
+  );
 }
 
 export async function getDirectoryOptions() {
-  return publicApi<DirectoryOptions>("/public/ad-options", true);
+  const options = await publicApi<DirectoryOptions>("/public/ad-options", true);
+  if (!options) return null;
+
+  return {
+    ...options,
+    countries: options.countries.map((country) => {
+      if (country.code !== "IN" && country.slug !== "india") return country;
+
+      const apiStates = new Map(country.states.map((state) => [state.slug, state]));
+      const mergedStates: DirectoryState[] = indiaStates.map((indiaState) => {
+        const apiState = apiStates.get(indiaState.slug);
+        const apiCities = new Map(
+          (apiState?.cities ?? []).map((directoryCity) => [directoryCity.slug, directoryCity]),
+        );
+        const mergedCities = indiaState.cities.map((indiaCity) => ({
+          ...indiaCity,
+          ...apiCities.get(indiaCity.slug),
+        }));
+
+        for (const apiCity of apiState?.cities ?? []) {
+          if (!mergedCities.some((directoryCity) => directoryCity.slug === apiCity.slug)) {
+            mergedCities.push(apiCity);
+          }
+        }
+
+        apiStates.delete(indiaState.slug);
+        return {
+          name: indiaState.name,
+          slug: indiaState.slug,
+          type: indiaState.type,
+          summary: indiaState.summary,
+          ...apiState,
+          cities: mergedCities,
+        };
+      });
+
+      return {
+        ...country,
+        states: [...mergedStates, ...apiStates.values()],
+      };
+    }),
+  };
 }
 
 export type CategoryLocations = {
@@ -251,11 +285,19 @@ export async function getCategoryLocations(slug: string) {
   );
 }
 
-export async function getDirectoryProfile(slug: string) {
-  const profile = await publicApi<ApiProfile>(`/public/profiles/${encodeURIComponent(slug)}`, true);
-  if (profile) return fromApi(profile);
-  const demo = getProfile(slug);
-  return demo ? fromDemo(demo) : null;
+export async function getDirectoryProfile(
+  slug: string
+): Promise<DirectoryProfile | null> {
+  const profile = await publicApi<ApiProfile>(
+    `/public/profiles/${encodeURIComponent(slug)}`,
+    true
+  );
+
+  if (!profile) {
+    return null;
+  }
+
+  return fromApi(profile);
 }
 
 export async function getDirectoryLocations() {
@@ -267,4 +309,30 @@ export async function getDirectoryLocation(stateSlug: string, citySlug?: string)
     ? `/public/locations/${encodeURIComponent(stateSlug)}/${encodeURIComponent(citySlug)}`
     : `/public/locations/${encodeURIComponent(stateSlug)}`;
   return publicApi<DirectoryState>(path);
+}
+export type SitemapProfile = {
+  slug: string;
+  updatedAt?: string;
+};
+
+export async function getProfilesForSitemap(): Promise<SitemapProfile[]> {
+  const profiles = await publicApi<ApiProfile[]>(
+    "/public/profiles",
+    true
+  );
+
+  if (!profiles) {
+    return [];
+  }
+
+  return profiles
+    .filter(
+      (profile) =>
+        typeof profile.slug === "string" &&
+        profile.slug.trim().length > 0
+    )
+    .map((profile) => ({
+      slug: profile.slug,
+      updatedAt: profile.updatedAt ?? profile.publishedAt,
+    }));
 }

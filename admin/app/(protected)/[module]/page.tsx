@@ -6,6 +6,7 @@ const modules = [
   "profiles",
   "users",
   "categories",
+  "blog",
   "media",
   "locations",
   "seo",
@@ -29,6 +30,10 @@ const moduleCopy: Record<ModuleName, { title: string; description: string }> = {
     title: "Homepage categories",
     description:
       "Manage category names, descriptions and the images displayed on the public homepage.",
+  },
+  blog: {
+    title: "Blog & SEO",
+    description: "Create, edit and publish public guides with search metadata from one place.",
   },
   media: {
     title: "Media library",
@@ -74,6 +79,7 @@ async function loadData(module: ModuleName) {
   const paths: Record<Exclude<ModuleName, "profiles" | "leads">, string> = {
     users: "/admin/users",
     categories: "/admin/categories",
+    blog: "/admin/blog",
     media: "/admin/media",
     locations: "/admin/locations",
     seo: "/admin/seo",

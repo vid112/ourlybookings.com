@@ -218,5 +218,3 @@ export default async function ContentPage({ params }: ContentPageProps) {
     </div>
   );
 }
-
-export const dynamicParams = false;

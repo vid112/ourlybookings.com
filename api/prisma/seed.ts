@@ -2,6 +2,7 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { hash } from "argon2";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { getIndiaLocations } from "./india-locations";
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error("DATABASE_URL is required for seeding");
@@ -22,15 +23,6 @@ const permissions = [
   "users.manage",
   "settings.manage",
 ];
-
-const seedLocations = [
-  ["Maharashtra", "maharashtra", ["Mumbai", "Pune", "Nagpur", "Nashik", "Thane", "Navi Mumbai"]],
-  ["Karnataka", "karnataka", ["Bengaluru", "Mysuru", "Mangaluru", "Hubballi", "Belagavi"]],
-  ["Delhi", "delhi", ["New Delhi", "South Delhi", "Dwarka", "Rohini", "Saket"]],
-  ["Tamil Nadu", "tamil-nadu", ["Chennai", "Coimbatore", "Madurai", "Tiruchirappalli", "Salem"]],
-  ["Telangana", "telangana", ["Hyderabad", "Secunderabad", "Warangal"]],
-  ["Goa", "goa", ["Panaji", "North Goa", "South Goa"]],
-] as const;
 
 function slugify(value: string) {
   return value
@@ -129,25 +121,34 @@ async function main() {
     create: { name: "India", code: "IN", slug: "india" },
   });
 
-  for (const [stateName, stateSlug, cityNames] of seedLocations) {
+  for (const location of getIndiaLocations()) {
     const state = await prisma.state.upsert({
-      where: { countryId_slug: { countryId: india.id, slug: stateSlug } },
-      update: { isPublished: true },
+      where: { countryId_slug: { countryId: india.id, slug: location.slug } },
+      update: { name: location.name, type: location.type, isPublished: true },
       create: {
         countryId: india.id,
-        name: stateName,
-        slug: stateSlug,
-        type: stateName === "Delhi" ? "Union territory" : "State",
+        name: location.name,
+        slug: location.slug,
+        type: location.type,
         isPublished: true,
       },
     });
-    for (const cityName of cityNames) {
-      await prisma.city.upsert({
-        where: { stateId_slug: { stateId: state.id, slug: slugify(cityName) } },
-        update: { isPublished: true },
-        create: { stateId: state.id, name: cityName, slug: slugify(cityName), isPublished: true },
-      });
-    }
+
+    await prisma.city.createMany({
+      data: location.cities.map((city) => ({
+        stateId: state.id,
+        name: city.name,
+        slug: city.slug,
+        latitude: city.latitude,
+        longitude: city.longitude,
+        isPublished: true,
+      })),
+      skipDuplicates: true,
+    });
+    await prisma.city.updateMany({
+      where: { stateId: state.id, slug: { in: location.cities.map((city) => city.slug) } },
+      data: { isPublished: true },
+    });
   }
 
   for (const entry of internationalCountries()) {
@@ -187,19 +188,24 @@ async function main() {
   }
 
   const allCities = await prisma.city.findMany({ select: { id: true, name: true } });
-  for (const city of allCities) {
-    await prisma.area.upsert({
-      where: { cityId_slug: { cityId: city.id, slug: "all-areas" } },
-      update: { name: "All Areas", isPublished: true },
-      create: {
+  const areaBatchSize = 500;
+  for (let index = 0; index < allCities.length; index += areaBatchSize) {
+    const cityBatch = allCities.slice(index, index + areaBatchSize);
+    await prisma.area.createMany({
+      data: cityBatch.map((city) => ({
         cityId: city.id,
         name: "All Areas",
         slug: "all-areas",
         description: `Listings across all areas of ${city.name}.`,
         isPublished: true,
-      },
+      })),
+      skipDuplicates: true,
     });
   }
+  await prisma.area.updateMany({
+    where: { cityId: { in: allCities.map((city) => city.id) }, slug: "all-areas" },
+    data: { name: "All Areas", isPublished: true },
+  });
 
   const publicCategories = [
     {

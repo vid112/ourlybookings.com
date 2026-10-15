@@ -2858,6 +2858,7 @@ export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof
 export const UserScalarFieldEnum = {
   id: 'id',
   email: 'email',
+  googleSubject: 'googleSubject',
   passwordHash: 'passwordHash',
   displayName: 'displayName',
   mobile: 'mobile',
@@ -3053,6 +3054,8 @@ export const CategoryScalarFieldEnum = {
   description: 'description',
   icon: 'icon',
   imageUrl: 'imageUrl',
+  imageData: 'imageData',
+  imageMimeType: 'imageMimeType',
   sortOrder: 'sortOrder',
   isPublished: 'isPublished',
   createdAt: 'createdAt',
@@ -3171,6 +3174,8 @@ export const MediaAssetScalarFieldEnum = {
   height: 'height',
   duration: 'duration',
   bytes: 'bytes',
+  imageData: 'imageData',
+  imageMimeType: 'imageMimeType',
   folder: 'folder',
   version: 'version',
   altText: 'altText',
@@ -3594,6 +3599,20 @@ export type EnumPromotionPlanFieldRefInput<$PrismaModel> = FieldRefInputType<$Pr
  * Reference to a field of type 'PromotionPlan[]'
  */
 export type ListEnumPromotionPlanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PromotionPlan[]'>
+    
+
+
+/**
+ * Reference to a field of type 'Bytes'
+ */
+export type BytesFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Bytes'>
+    
+
+
+/**
+ * Reference to a field of type 'Bytes[]'
+ */
+export type ListBytesFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Bytes[]'>
     
 
 

@@ -140,6 +140,18 @@ export class UpdateSeoDto {
   focusKeyword?: string;
 }
 
+export class UpsertBlogPostDto {
+  @IsString() @MinLength(3) @MaxLength(160) title: string;
+  @IsString() @MinLength(3) @MaxLength(180) slug: string;
+  @IsString() @MinLength(20) @MaxLength(500) excerpt: string;
+  @IsString() @MinLength(50) @MaxLength(50000) content: string;
+  @IsString() @MinLength(2) @MaxLength(100) authorName: string;
+  @IsIn(["DRAFT", "PUBLISHED", "ARCHIVED"]) status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+  @IsString() @MinLength(10) @MaxLength(200) seoTitle: string;
+  @IsString() @MinLength(20) @MaxLength(500) metaDescription: string;
+  @IsOptional() @IsString() @MaxLength(160) focusKeyword?: string;
+}
+
 export class UpdateSettingDto {
   @IsObject()
   value: Record<string, unknown>;

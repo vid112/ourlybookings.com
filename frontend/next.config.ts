@@ -15,12 +15,23 @@ const nextConfig: NextConfig = {
     localPatterns: [{ pathname: "/images/**" }],
     dangerouslyAllowLocalIP: true,
     remotePatterns: [
+      { protocol: "https", hostname: "api.ourlybookings.com", pathname: "/api/v1/public/media/**" },
       { protocol: "https", hostname: "res.cloudinary.com" },
       { protocol: "https", hostname: "cdn.schloka.com" },
       { protocol: "http", hostname: "localhost", port: "4000", pathname: "/uploads/**" },
     ],
   },
   turbopack: { root: turbopackRoot },
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.ourlybookings.com" }],
+        destination: "https://ourlybookings.com/:path*",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

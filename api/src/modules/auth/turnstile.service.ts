@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, ServiceUnavailableException } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
 type TurnstileResponse = {
@@ -8,13 +13,20 @@ type TurnstileResponse = {
 
 @Injectable()
 export class TurnstileService {
+  private readonly logger = new Logger(TurnstileService.name);
+  private warnedAboutMissingSecret = false;
+
   constructor(private readonly config: ConfigService) {}
 
   async verify(token?: string, remoteIp?: string) {
     const secret = this.config.get<string>("TURNSTILE_SECRET_KEY")?.trim();
     if (!secret) {
-      if (this.config.get<string>("NODE_ENV") === "production") {
-        throw new ServiceUnavailableException("Cloudflare verification is not configured");
+      if (
+        this.config.get<string>("NODE_ENV") === "production" &&
+        !this.warnedAboutMissingSecret
+      ) {
+        this.logger.warn("Cloudflare Turnstile is disabled because no secret key is configured");
+        this.warnedAboutMissingSecret = true;
       }
       return;
     }

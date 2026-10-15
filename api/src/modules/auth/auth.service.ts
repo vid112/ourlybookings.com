@@ -5,18 +5,44 @@ import {
   HttpException,
   HttpStatus,
   Injectable,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { hash, verify } from "argon2";
-import { randomInt, randomUUID } from "crypto";
+import { createHash, randomInt, randomUUID, timingSafeEqual } from "crypto";
+import { OAuth2Client, type TokenPayload } from "google-auth-library";
 import { PrismaService } from "../../prisma/prisma.service";
 import type { RefreshPayload } from "./auth.types";
 import { OtpMailerService } from "./otp-mailer.service";
 
+const refreshTokenDigest = (token: string) => createHash("sha256").update(token).digest("hex");
+
+const verifyRefreshToken = async (storedHash: string, token: string) => {
+  // Tokens issued before the SHA-256 migration used Argon2. Keep them valid
+  // until their normal seven-day expiry, while avoiding Argon2 for new tokens.
+  if (storedHash.startsWith("$argon2")) return verify(storedHash, token);
+
+  const actual = Buffer.from(refreshTokenDigest(token), "hex");
+  const expected = Buffer.from(storedHash, "hex");
+  return actual.length === expected.length && timingSafeEqual(actual, expected);
+};
+
+type LoginUser = {
+  id: string;
+  email: string;
+  displayName: string;
+  passwordHash: string;
+  isActive: boolean;
+  accountStatus: "ACTIVE" | "UNVERIFIED" | "BLOCKED";
+  roles: string[];
+};
+
 @Injectable()
 export class AuthService {
+  private readonly google = new OAuth2Client();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
@@ -120,10 +146,23 @@ export class AuthService {
   }
 
   async login(email: string, password: string, userAgent?: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
-      include: { roles: { include: { role: true } } },
-    });
+    const normalizedEmail = email.trim().toLowerCase();
+    const [user] = await this.prisma.$queryRaw<LoginUser[]>`
+      SELECT
+        u.id,
+        u.email,
+        u."displayName",
+        u."passwordHash",
+        u."isActive",
+        u."accountStatus",
+        COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL), ARRAY[]::text[]) AS roles
+      FROM "User" u
+      LEFT JOIN "UserRole" ur ON ur."userId" = u.id
+      LEFT JOIN "Role" r ON r.id = ur."roleId"
+      WHERE u.email = ${normalizedEmail}
+      GROUP BY u.id
+      LIMIT 1
+    `;
     if (
       !user ||
       !user.isActive ||
@@ -135,11 +174,86 @@ export class AuthService {
     if (user.accountStatus === "UNVERIFIED") {
       throw new ForbiddenException("Email verification is required before login");
     }
-    await this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+    return this.createSession(user, user.roles, userAgent, true);
+  }
+
+  async loginWithGoogle(credential: string, termsAccepted: boolean, userAgent?: string) {
+    const clientId = this.config.get<string>("GOOGLE_CLIENT_ID");
+    if (!clientId) {
+      throw new ServiceUnavailableException("Google sign-in is not configured");
+    }
+
+    let payload: TokenPayload | undefined;
+    try {
+      const ticket = await this.google.verifyIdToken({ idToken: credential, audience: clientId });
+      payload = ticket.getPayload();
+    } catch {
+      throw new UnauthorizedException("Google sign-in could not be verified");
+    }
+    if (!payload?.sub || !payload.email || !payload.email_verified) {
+      throw new UnauthorizedException("Google account email is not verified");
+    }
+
+    const normalizedEmail = payload.email.trim().toLowerCase();
+    let user = await this.prisma.user.findUnique({
+      where: { googleSubject: payload.sub },
+      include: { roles: { include: { role: true } } },
+    });
+    if (!user) {
+      user = await this.prisma.user.findUnique({
+        where: { email: normalizedEmail },
+        include: { roles: { include: { role: true } } },
+      });
+    }
+
+    if (!user) {
+      if (!termsAccepted) {
+        throw new BadRequestException(
+          "Confirm that you are 18+ and accept the terms before continuing with Google",
+        );
+      }
+      const advertiserRole = await this.prisma.role.upsert({
+        where: { name: "Advertiser" },
+        update: {},
+        create: { name: "Advertiser", description: "Can create and manage own advertisements" },
+      });
+      user = await this.prisma.user.create({
+        data: {
+          email: normalizedEmail,
+          googleSubject: payload.sub,
+          displayName: payload.name?.trim() || normalizedEmail.split("@")[0] || "Advertiser",
+          passwordHash: await hash(`${randomUUID()}${randomUUID()}`),
+          emailVerifiedAt: new Date(),
+          termsAcceptedAt: new Date(),
+          accountStatus: "ACTIVE",
+          roles: { create: { roleId: advertiserRole.id } },
+        },
+        include: { roles: { include: { role: true } } },
+      });
+    } else {
+      if (!user.isActive || user.accountStatus === "BLOCKED") {
+        throw new UnauthorizedException("Account is unavailable");
+      }
+      if (user.googleSubject && user.googleSubject !== payload.sub) {
+        throw new UnauthorizedException("Google account does not match this user");
+      }
+      user = await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          googleSubject: payload.sub,
+          emailVerifiedAt: user.emailVerifiedAt ?? new Date(),
+          accountStatus: "ACTIVE",
+          ...(!user.termsAcceptedAt && termsAccepted ? { termsAcceptedAt: new Date() } : {}),
+        },
+        include: { roles: { include: { role: true } } },
+      });
+    }
+
     return this.createSession(
       user,
       user.roles.map(({ role }) => role.name),
       userAgent,
+      true,
     );
   }
 
@@ -157,7 +271,7 @@ export class AuthService {
       !stored ||
       stored.revokedAt ||
       stored.expiresAt <= new Date() ||
-      !(await verify(stored.tokenHash, refreshToken))
+      !(await verifyRefreshToken(stored.tokenHash, refreshToken))
     ) {
       throw new UnauthorizedException("Refresh token cannot be reused");
     }
@@ -173,6 +287,7 @@ export class AuthService {
       user,
       user.roles.map(({ role }) => role.name),
       userAgent,
+      false,
       payload.familyId,
       nextId,
     );
@@ -266,6 +381,7 @@ export class AuthService {
     user: { id: string; email: string; displayName: string },
     roles: string[],
     userAgent?: string,
+    recordLogin = false,
     familyId: string = randomUUID(),
     tokenId: string = randomUUID(),
   ) {
@@ -277,16 +393,24 @@ export class AuthService {
       { sub: user.id, jti: tokenId, familyId, type: "refresh" },
       { secret: this.config.getOrThrow<string>("JWT_REFRESH_SECRET"), expiresIn: 7 * 24 * 60 * 60 },
     );
-    await this.prisma.refreshToken.create({
+    const createRefreshToken = this.prisma.refreshToken.create({
       data: {
         id: tokenId,
         userId: user.id,
-        tokenHash: await hash(refreshToken),
+        tokenHash: refreshTokenDigest(refreshToken),
         familyId,
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         userAgent: userAgent?.slice(0, 500),
       },
     });
+    if (recordLogin) {
+      await Promise.all([
+        createRefreshToken,
+        this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } }),
+      ]);
+    } else {
+      await createRefreshToken;
+    }
     return {
       accessToken,
       refreshToken,

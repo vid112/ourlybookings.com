@@ -15,14 +15,41 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { HeroSearch } from "@/components/hero-search";
-import { ProfileCard } from "@/components/profile-card";
+import { ProfileListItem } from "@/components/profile-list-item";
 import { SectionHeading } from "@/components/section-heading";
 import { indiaStates } from "@/data/india";
 import { getDirectoryOptions, getDirectoryProfiles } from "@/lib/directory";
 import { siteConfig } from "@/lib/site";
+import { getBlogPosts } from "@/lib/blog";
 
-const featuredStates = ["maharashtra", "karnataka", "delhi", "tamil-nadu", "telangana", "gujarat"];
+const featuredStates = [
+  "maharashtra",
+  "delhi",
+  "karnataka",
+  "telangana",
+  "tamil-nadu",
+  "gujarat",
+  "west-bengal",
+  "uttar-pradesh",
+  "rajasthan",
+  "goa",
+];
 const stateRail = indiaStates.filter((state) => featuredStates.includes(state.slug));
+
+const topIndianMetros = [
+  { name: "Mumbai", stateSlug: "maharashtra", citySlug: "mumbai" },
+  { name: "New Delhi", stateSlug: "delhi", citySlug: "new-delhi" },
+  { name: "Bengaluru", stateSlug: "karnataka", citySlug: "bengaluru" },
+  { name: "Hyderabad", stateSlug: "telangana", citySlug: "hyderabad" },
+  { name: "Pune", stateSlug: "maharashtra", citySlug: "pune" },
+  { name: "Kolkata", stateSlug: "west-bengal", citySlug: "kolkata" },
+  { name: "Chennai", stateSlug: "tamil-nadu", citySlug: "chennai" },
+  { name: "Ahmedabad", stateSlug: "gujarat", citySlug: "ahmedabad" },
+  { name: "Jaipur", stateSlug: "rajasthan", citySlug: "jaipur" },
+  { name: "Goa", stateSlug: "goa", citySlug: "north-goa" },
+  { name: "Lucknow", stateSlug: "uttar-pradesh", citySlug: "lucknow" },
+  { name: "Chandigarh", stateSlug: "chandigarh", citySlug: "chandigarh" },
+];
 
 const services = [
   { title: "Companionship", icon: HeartHandshake },
@@ -71,19 +98,40 @@ const faqs = [
 ] as const;
 
 export default async function HomePage() {
-  const [directoryProfiles, directoryOptions] = await Promise.all([
+  const [directoryProfiles, directoryOptions, blogPosts] = await Promise.all([
     getDirectoryProfiles(),
     getDirectoryOptions(),
+    getBlogPosts(),
   ]);
-  const featuredProfiles = directoryProfiles.slice(0, 3);
+  const featuredProfiles = directoryProfiles.slice(0, 10);
+  const latestProfileUpdate = directoryProfiles.reduce<string | undefined>((latest, profile) => {
+    if (!profile.updatedAt) return latest;
+    return !latest || profile.updatedAt > latest ? profile.updatedAt : latest;
+  }, undefined);
   const categoryCards = directoryOptions?.categories ?? [];
+
   const structuredData = {
     "@context": "https://schema.org",
-    "@type": "WebSite",
-    name: siteConfig.name,
-    url: siteConfig.url,
-    description: siteConfig.description,
-    inLanguage: "en-IN",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        name: siteConfig.name,
+        url: siteConfig.url,
+        description: siteConfig.description,
+        inLanguage: "en-IN",
+      },
+      {
+        "@type": "FAQPage",
+        mainEntity: faqs.map((faq) => ({
+          "@type": "Question",
+          name: faq.question,
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: faq.answer,
+          },
+        })),
+      },
+    ],
   };
 
   return (
@@ -92,49 +140,110 @@ export default async function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
-      <section className="relative isolate min-h-[760px] overflow-hidden border-b border-white/10">
+      <section className="relative isolate overflow-hidden border-b border-white/10 md:min-h-[760px]">
+        <div className="relative aspect-[1783/882] w-full overflow-hidden bg-black md:hidden">
+          <Image
+            src="/images/hero-lounge.png?v=20260812"
+            alt="Premium Ourly Bookings homepage banner"
+            fill
+            priority
+            sizes="100vw"
+            className="object-contain"
+          />
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(3,4,8,0.84)_0%,rgba(3,4,8,0.58)_38%,rgba(3,4,8,0.04)_72%)]" />
+          <div className="absolute inset-y-0 left-0 flex w-[61%] flex-col justify-center px-4 py-3 sm:px-7">
+            <p className="mb-1.5 text-[7px] font-extrabold uppercase tracking-[0.18em] text-brand sm:text-[9px]">
+              Verified • Private • Independent
+            </p>
+            <h1 className="text-balance font-display text-[17px] font-bold leading-[1.08] tracking-[-0.05em] text-white min-[420px]:text-xl sm:text-3xl">
+              Verified Call Girls & Escorts in India
+            </h1>
+            <p className="mt-1.5 max-w-56 text-[8px] leading-[1.45] text-white/75 min-[420px]:text-[9px] sm:mt-2 sm:text-xs">
+              Privacy-first adult classifieds and companion discovery across all Indian cities.
+            </p>
+            <div className="mt-2.5 flex gap-1.5 sm:mt-4 sm:gap-2">
+              <Link
+                href="/profiles"
+                className="brand-gradient rounded-md px-2.5 py-1.5 text-center text-[8px] font-extrabold text-white shadow-lg shadow-brand/20 min-[420px]:text-[9px] sm:rounded-lg sm:px-4 sm:py-2 sm:text-xs"
+              >
+                Browse Profiles
+              </Link>
+              <Link
+                href="/india"
+                className="rounded-md border border-white/35 bg-black/30 px-2.5 py-1.5 text-center text-[8px] font-extrabold text-white backdrop-blur-sm min-[420px]:text-[9px] sm:rounded-lg sm:px-4 sm:py-2 sm:text-xs"
+              >
+                Explore India
+              </Link>
+            </div>
+          </div>
+        </div>
         <Image
           src="/images/hero-lounge.png?v=20260812"
           alt="Premium Ourly Bookings homepage banner"
           fill
           priority
           sizes="100vw"
-          className="-z-10 object-cover object-[68%_center]"
+          className="-z-10 hidden object-cover object-[68%_center] md:block"
         />
-        <div className="site-container flex min-h-[760px] items-center py-16">
-          <div className="w-full max-w-3xl">
-            <h1 className="text-balance max-w-2xl font-display text-5xl font-bold leading-[1.02] tracking-[-0.06em] text-paper sm:text-6xl lg:text-7xl">
-              Discover verified independent profiles worldwide
-            </h1>
-            <p className="mt-6 max-w-xl text-lg leading-8 text-muted">
-              Privacy-first discovery for consenting adults, with city-based browsing, consent
-              controls and direct advertiser contact.
-            </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/profiles"
-                className="brand-gradient rounded-xl px-7 py-4 text-center font-bold text-white shadow-xl shadow-brand/20"
-              >
-                Browse Profiles
-              </Link>
-              <Link
-                href="/india"
-                className="rounded-xl border border-brand/60 bg-black/35 px-7 py-4 text-center font-bold text-paper backdrop-blur hover:bg-brand/10"
-              >
-                Explore Locations
-              </Link>
+        <div className="absolute inset-0 -z-[5] hidden bg-gradient-to-r from-black/85 via-black/55 to-black/20 md:block" />
+        <div className="home-mobile-hero relative md:bg-transparent">
+          <div className="home-mobile-orb home-mobile-orb-one md:hidden" aria-hidden="true" />
+          <div className="home-mobile-orb home-mobile-orb-two md:hidden" aria-hidden="true" />
+          <div className="site-container flex items-center py-5 sm:py-8 md:min-h-[760px] md:py-16">
+            <div className="w-full max-w-3xl">
+              <h1 className="hidden max-w-2xl text-balance font-display font-bold leading-[1.08] tracking-[-0.055em] text-paper md:block md:text-6xl lg:text-7xl">
+                Verified Call Girls & Escorts in India
+              </h1>
+              <p className="mt-6 hidden max-w-xl text-lg leading-8 text-muted md:block">
+                Browse genuine independent profiles, 100% verified photo listings, and direct contact
+                for adult companionship and massage services in India.
+              </p>
+              <div className="mt-8 hidden gap-3 md:flex md:flex-row">
+                <Link
+                  href="/profiles"
+                  className="brand-gradient rounded-xl px-3 py-3.5 text-center text-sm font-bold text-white shadow-xl shadow-brand/20 transition hover:-translate-y-0.5 sm:px-7 sm:py-4 sm:text-base"
+                >
+                  Browse Profiles
+                </Link>
+                <Link
+                  href="/india"
+                  className="rounded-xl border border-brand/60 bg-black/35 px-3 py-3.5 text-center text-sm font-bold text-paper backdrop-blur transition hover:-translate-y-0.5 hover:bg-brand/10 sm:px-7 sm:py-4 sm:text-base"
+                >
+                  Explore All Cities
+                </Link>
+              </div>
+              <div className="max-w-3xl md:mt-10">
+                <HeroSearch
+                  countries={directoryOptions?.countries ?? []}
+                  categories={directoryOptions?.categories ?? []}
+                />
+              </div>
+              <p className="mt-5 flex max-w-xl items-start gap-2 text-xs leading-5 text-muted">
+                <ShieldCheck className="mt-0.5 shrink-0 text-gold" size={16} />
+                18+ only. Advertisers are independently responsible for content and lawful
+                communication.
+              </p>
             </div>
-            <div className="mt-10 max-w-3xl">
-              <HeroSearch
-                countries={directoryOptions?.countries ?? []}
-                categories={directoryOptions?.categories ?? []}
-              />
-            </div>
-            <p className="mt-5 flex max-w-xl items-start gap-2 text-xs leading-5 text-muted">
-              <ShieldCheck className="mt-0.5 shrink-0 text-gold" size={16} />
-              18+ only. Advertisers are independently responsible for content and lawful
-              communication.
-            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* SEO Quick Metros Link Bar */}
+      <section className="border-b border-white/10 bg-black/40 py-6">
+        <div className="site-container">
+          <p className="text-xs font-bold uppercase tracking-wider text-muted">
+            Popular City Directories:
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {topIndianMetros.map((metro) => (
+              <Link
+                key={metro.citySlug}
+                href={`/india/${metro.stateSlug}/${metro.citySlug}`}
+                className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-paper transition hover:border-brand/60 hover:text-brand"
+              >
+                Call Girls in {metro.name}
+              </Link>
+            ))}
           </div>
         </div>
       </section>
@@ -157,7 +266,7 @@ export default async function HomePage() {
         <div className="site-container">
           <SectionHeading
             title="Find listings by category"
-            description="Choose a service category, then browse every country and city where approved listings are available. Category images can be uploaded from the admin panel."
+            description="Choose a service category, then browse every country and city where approved listings are available."
           />
           <div className="mt-12 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {categoryCards.map((category) => (
@@ -204,52 +313,79 @@ export default async function HomePage() {
 
       <section className="section-space">
         <div className="site-container">
-          <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
+          <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
             <SectionHeading
-              title="Featured independent profiles"
-              description="Published listings use authorized source images and pass the profile publication workflow."
+              title="Latest independent posts"
+              description="Browse the newest approved advertisements in a compact list. Open any post for complete details and contact options."
             />
-            <Link href="/profiles" className="shrink-0 font-bold text-brand">
-              View all profiles →
-            </Link>
+            <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
+              {latestProfileUpdate ? (
+                <p className="text-xs text-muted">
+                  Last updated:{" "}
+                  {new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" }).format(
+                    new Date(latestProfileUpdate),
+                  )}
+                </p>
+              ) : null}
+              <Link href="/profiles" className="font-bold text-brand">
+                View all posts →
+              </Link>
+            </div>
           </div>
-          <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {featuredProfiles.map((profile) => (
-              <ProfileCard key={profile.id} profile={profile} />
-            ))}
-          </div>
+          {featuredProfiles.length ? (
+            <div className="mt-9 space-y-4 sm:mt-10 sm:space-y-5">
+              {featuredProfiles.map((profile) => (
+                <ProfileListItem key={profile.id} profile={profile} />
+              ))}
+            </div>
+          ) : (
+            <div className="mt-9 rounded-[20px] border border-dashed border-white/15 p-8 text-center text-muted">
+              No approved posts are available yet.
+            </div>
+          )}
+          {directoryProfiles.length > 10 ? (
+            <div className="mt-8 text-center">
+              <Link
+                href="/profiles"
+                className="inline-flex min-h-12 items-center justify-center rounded-xl border border-brand/55 px-6 font-bold text-brand transition hover:bg-brand/10"
+              >
+                View all {directoryProfiles.length} posts →
+              </Link>
+            </div>
+          ) : null}
         </div>
       </section>
 
+      {/* Upgraded India Location Grid with Keyword-Rich Links */}
       <section className="border-y border-white/10 bg-surface/60 py-20">
         <div className="site-container">
           <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
             <SectionHeading
-              title="India location highlights"
-              description="Browse popular Indian states and cities here, or use global search for every configured country and region."
+              title="India Escorts & Companion Highlights"
+              description="Direct access to verified independent call girls, companion listings, and massage services across top Indian states."
             />
             <Link href="/india" className="font-bold text-brand">
               All India locations →
             </Link>
           </div>
-          <div className="mt-12 grid gap-x-10 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-10 grid grid-cols-2 gap-x-4 gap-y-8 sm:mt-12 sm:gap-x-10 sm:gap-y-12 lg:grid-cols-3">
             {stateRail.map((state) => (
               <div key={state.slug} className="border-t border-white/15 pt-5">
                 <Link
                   href={`/india/${state.slug}`}
-                  className="font-display text-2xl font-bold tracking-[-0.04em] hover:text-brand"
+                  className="font-display text-lg font-bold tracking-[-0.04em] hover:text-brand sm:text-2xl"
                 >
-                  {state.name}
+                  {state.name} Escorts
                 </Link>
-                <ul className="mt-5 space-y-3 text-sm text-muted">
-                  {state.cities.slice(0, 5).map((stateCity) => (
+                <ul className="mt-4 space-y-2.5 text-xs text-muted sm:mt-5 sm:space-y-3 sm:text-sm">
+                  {state.cities.slice(0, 6).map((stateCity) => (
                     <li key={stateCity.slug}>
                       <Link
                         href={`/india/${state.slug}/${stateCity.slug}`}
                         className="inline-flex items-center gap-2 hover:text-paper"
                       >
                         <MapPin size={14} className="text-brand" />
-                        {stateCity.name}
+                        Call Girls in {stateCity.name}
                       </Link>
                     </li>
                   ))}
@@ -269,21 +405,35 @@ export default async function HomePage() {
           className="-z-20 object-cover object-center"
           aria-hidden="true"
         />
-        <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(5,7,12,0.96),rgba(10,12,18,0.78)_52%,rgba(5,7,12,0.92)),linear-gradient(180deg,rgba(5,7,12,0.50),rgba(5,7,12,0.94))]" />
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_15%_15%,rgba(220,50,103,0.24),transparent_32%),radial-gradient(circle_at_90%_80%,rgba(201,165,92,0.12),transparent_30%),linear-gradient(90deg,rgba(5,7,12,0.96),rgba(10,12,18,0.78)_52%,rgba(5,7,12,0.94)),linear-gradient(180deg,rgba(5,7,12,0.50),rgba(5,7,12,0.94))]" />
         <div className="site-container relative">
-          <SectionHeading
-            title="Explore popular services"
-            description="Service pages use careful, non-misleading language and link only to independently managed profiles."
-          />
-          <div className="mt-12 grid overflow-hidden rounded-[24px] border border-white/15 bg-black/35 shadow-2xl shadow-black/30 backdrop-blur-sm sm:grid-cols-2 lg:grid-cols-5">
+          <div className="max-w-3xl">
+            <p className="mb-3 text-xs font-extrabold uppercase tracking-[0.24em] text-brand">
+              Find your experience
+            </p>
+            <h2 className="text-balance font-display text-3xl font-bold tracking-[-0.05em] text-paper sm:text-4xl lg:text-5xl">
+              Explore our <span className="service-heading-accent">services</span>
+            </h2>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-muted sm:text-lg">
+              Browse carefully described services linked only to independently managed profiles.
+            </p>
+          </div>
+          <div className="mt-8 grid grid-cols-2 gap-3 sm:mt-12 sm:grid-cols-2 sm:gap-4 lg:grid-cols-5">
             {services.map(({ title, icon: Icon }) => (
               <Link
                 key={title}
                 href="/services"
-                className="group flex min-h-44 flex-col justify-between border-b border-white/12 p-6 transition hover:bg-white/10 sm:border-r lg:border-b-0"
+                className="service-card group flex min-h-36 flex-col justify-between rounded-2xl border border-white/12 bg-black/35 p-4 backdrop-blur-sm last:col-span-2 sm:min-h-44 sm:p-6 sm:last:col-span-1"
               >
-                <Icon className="text-brand transition group-hover:scale-110" size={30} />
-                <span className="font-display text-lg font-bold">{title}</span>
+                <span className="service-icon grid size-11 place-items-center rounded-2xl border border-brand/25 bg-brand/10 text-brand sm:size-12">
+                  <Icon className="transition group-hover:scale-110" size={25} />
+                </span>
+                <span className="flex items-end justify-between gap-2">
+                  <span className="font-display text-sm font-bold leading-5 sm:text-lg">{title}</span>
+                  <span className="text-brand transition group-hover:translate-x-1" aria-hidden="true">
+                    →
+                  </span>
+                </span>
               </Link>
             ))}
           </div>
@@ -379,24 +529,11 @@ export default async function HomePage() {
             </Link>
           </div>
           <div className="mt-10 grid gap-5 md:grid-cols-3">
-            {[
-              [
-                "Meeting safely for the first time",
-                "A practical consent, privacy and communication checklist.",
-              ],
-              [
-                "Protecting your privacy online",
-                "Simple steps for safer messaging and personal-data control.",
-              ],
-              [
-                "Browsing profiles by Indian city",
-                "Use state and city pages without exposing sensitive information.",
-              ],
-            ].map(([title, copy]) => (
-              <article key={title} className="surface-border rounded-[20px] bg-surface p-6">
-                <h3 className="font-display text-xl font-bold">{title}</h3>
-                <p className="mt-4 leading-7 text-muted">{copy}</p>
-                <Link href="/blog" className="mt-6 inline-block font-bold text-brand">
+            {blogPosts.slice(0, 3).map((post) => (
+              <article key={post.id} className="surface-border rounded-[20px] bg-surface p-6">
+                <h3 className="font-display text-xl font-bold">{post.title}</h3>
+                <p className="mt-4 leading-7 text-muted">{post.excerpt}</p>
+                <Link href={`/blog/${post.slug}`} className="mt-6 inline-block font-bold text-brand">
                   Read guide →
                 </Link>
               </article>
@@ -408,6 +545,4 @@ export default async function HomePage() {
   );
 }
 
-// Featured profiles are moderation-driven data and must not leave a newly
-// approved or removed listing hidden behind the full-route cache.
 export const dynamic = "force-dynamic";
