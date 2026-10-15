@@ -485,4 +485,64 @@ export default async function HomePage() {
               <Link
                 key={src}
                 href="/gallery"
-                className="group relative aspect-[4/3] overflow-hidden rounded-[20px] border border-white/
+                className="group relative aspect-[4/3] overflow-hidden rounded-[20px] border border-white/12"
+              >
+                <Image
+                  src={src}
+                  alt={`Original fictional adult demo gallery image ${index + 1}`}
+                  fill
+                  sizes="(max-width: 640px) 100vw, 33vw"
+                  className="object-cover transition duration-500 group-hover:scale-[1.03]"
+                />
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="section-space">
+        <div className="site-container grid gap-14 lg:grid-cols-[0.8fr_1.2fr]">
+          <SectionHeading
+            title="Frequently asked questions"
+            description="Clear platform, consent and safety answers are visible to visitors and mirrored in eligible structured data."
+          />
+          <div className="divide-y divide-white/12 border-y border-white/12">
+            {faqs.map((faq) => (
+              <details key={faq.question} className="group py-5">
+                <summary className="cursor-pointer list-none pr-8 font-display text-lg font-bold marker:hidden">
+                  {faq.question}
+                  <span className="float-right text-brand group-open:rotate-45">+</span>
+                </summary>
+                <p className="mt-4 max-w-2xl leading-7 text-muted">{faq.answer}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="pb-28">
+        <div className="site-container">
+          <div className="flex items-end justify-between gap-6">
+            <SectionHeading title="Latest safety and city guides" />
+            <Link href="/blog" className="font-bold text-brand">
+              All guides →
+            </Link>
+          </div>
+          <div className="mt-10 grid gap-5 md:grid-cols-3">
+            {blogPosts.slice(0, 3).map((post) => (
+              <article key={post.id} className="surface-border rounded-[20px] bg-surface p-6">
+                <h3 className="font-display text-xl font-bold">{post.title}</h3>
+                <p className="mt-4 leading-7 text-muted">{post.excerpt}</p>
+                <Link href={`/blog/${post.slug}`} className="mt-6 inline-block font-bold text-brand">
+                  Read guide →
+                </Link>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}
+
+export const dynamic = "force-dynamic";
