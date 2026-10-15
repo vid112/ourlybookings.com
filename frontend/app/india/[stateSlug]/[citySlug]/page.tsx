@@ -11,6 +11,23 @@ type CityPageProps = {
   params: Promise<{ stateSlug: string; citySlug: string }>;
 };
 
+type DirectoryProfileItem = {
+  id: string | number;
+  slug?: string;
+  name?: string;
+  title?: string;
+  about?: string;
+  description?: string;
+  age?: number | string;
+  locality?: string;
+  phone?: string;
+  contactNumber?: string;
+  whatsappNumber?: string;
+  avatarUrl?: string;
+  heroImageUrl?: string;
+  images?: Array<{ url: string }>;
+};
+
 export function generateStaticParams() {
   return indiaStates.flatMap((state) =>
     state.cities.map((city) => ({
@@ -53,7 +70,8 @@ export default async function CityPage({ params }: CityPageProps) {
 
   if (!city || !state) notFound();
 
-  const apiProfiles = await getDirectoryProfiles({ state: stateSlug, city: citySlug });
+  const rawProfiles = await getDirectoryProfiles({ state: stateSlug, city: citySlug });
+  const apiProfiles = rawProfiles as unknown as DirectoryProfileItem[];
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -120,7 +138,7 @@ export default async function CityPage({ params }: CityPageProps) {
 
         <div className="mt-6 space-y-4">
           {apiProfiles.length > 0 ? (
-            apiProfiles.map((profile: any) => {
+            apiProfiles.map((profile) => {
               const displayImage =
                 profile.images?.[0]?.url ||
                 profile.avatarUrl ||
@@ -200,7 +218,7 @@ export default async function CityPage({ params }: CityPageProps) {
             })
           ) : (
             <div className="rounded-2xl border border-dashed border-white/15 p-10 text-center text-muted">
-              No approved ads in {city.name} right now. Click "Post Your Ad" to publish the first listing!
+              No approved ads in {city.name} right now. Click &quot;Post Your Ad&quot; to publish the first listing!
             </div>
           )}
         </div>
