@@ -22,8 +22,34 @@ import { getDirectoryOptions, getDirectoryProfiles } from "@/lib/directory";
 import { siteConfig } from "@/lib/site";
 import { getBlogPosts } from "@/lib/blog";
 
-const featuredStates = ["maharashtra", "karnataka", "delhi", "tamil-nadu", "telangana", "gujarat"];
+const featuredStates = [
+  "maharashtra",
+  "delhi",
+  "karnataka",
+  "telangana",
+  "tamil-nadu",
+  "gujarat",
+  "west-bengal",
+  "uttar-pradesh",
+  "rajasthan",
+  "goa",
+];
 const stateRail = indiaStates.filter((state) => featuredStates.includes(state.slug));
+
+const topIndianMetros = [
+  { name: "Mumbai", stateSlug: "maharashtra", citySlug: "mumbai" },
+  { name: "New Delhi", stateSlug: "delhi", citySlug: "new-delhi" },
+  { name: "Bengaluru", stateSlug: "karnataka", citySlug: "bengaluru" },
+  { name: "Hyderabad", stateSlug: "telangana", citySlug: "hyderabad" },
+  { name: "Pune", stateSlug: "maharashtra", citySlug: "pune" },
+  { name: "Kolkata", stateSlug: "west-bengal", citySlug: "kolkata" },
+  { name: "Chennai", stateSlug: "tamil-nadu", citySlug: "chennai" },
+  { name: "Ahmedabad", stateSlug: "gujarat", citySlug: "ahmedabad" },
+  { name: "Jaipur", stateSlug: "rajasthan", citySlug: "jaipur" },
+  { name: "Goa", stateSlug: "goa", citySlug: "north-goa" },
+  { name: "Lucknow", stateSlug: "uttar-pradesh", citySlug: "lucknow" },
+  { name: "Chandigarh", stateSlug: "chandigarh", citySlug: "chandigarh" },
+];
 
 const services = [
   { title: "Companionship", icon: HeartHandshake },
@@ -83,13 +109,29 @@ export default async function HomePage() {
     return !latest || profile.updatedAt > latest ? profile.updatedAt : latest;
   }, undefined);
   const categoryCards = directoryOptions?.categories ?? [];
+
   const structuredData = {
     "@context": "https://schema.org",
-    "@type": "WebSite",
-    name: siteConfig.name,
-    url: siteConfig.url,
-    description: siteConfig.description,
-    inLanguage: "en-IN",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        name: siteConfig.name,
+        url: siteConfig.url,
+        description: siteConfig.description,
+        inLanguage: "en-IN",
+      },
+      {
+        "@type": "FAQPage",
+        mainEntity: faqs.map((faq) => ({
+          "@type": "Question",
+          name: faq.question,
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: faq.answer,
+          },
+        })),
+      },
+    ],
   };
 
   return (
@@ -114,10 +156,10 @@ export default async function HomePage() {
               Verified • Private • Independent
             </p>
             <h1 className="text-balance font-display text-[17px] font-bold leading-[1.08] tracking-[-0.05em] text-white min-[420px]:text-xl sm:text-3xl">
-              Discover verified profiles worldwide
+              Verified Call Girls & Escorts in India
             </h1>
             <p className="mt-1.5 max-w-56 text-[8px] leading-[1.45] text-white/75 min-[420px]:text-[9px] sm:mt-2 sm:text-xs">
-              Privacy-first discovery for consenting adults.
+              Privacy-first adult classifieds and companion discovery across all Indian cities.
             </p>
             <div className="mt-2.5 flex gap-1.5 sm:mt-4 sm:gap-2">
               <Link
@@ -150,11 +192,11 @@ export default async function HomePage() {
           <div className="site-container flex items-center py-5 sm:py-8 md:min-h-[760px] md:py-16">
             <div className="w-full max-w-3xl">
               <h1 className="hidden max-w-2xl text-balance font-display font-bold leading-[1.08] tracking-[-0.055em] text-paper md:block md:text-6xl lg:text-7xl">
-                Discover verified independent profiles worldwide
+                Verified Call Girls & Escorts in India
               </h1>
               <p className="mt-6 hidden max-w-xl text-lg leading-8 text-muted md:block">
-                Privacy-first discovery for consenting adults, with city-based browsing, consent
-                controls and direct advertiser contact.
+                Browse genuine independent profiles, 100% verified photo listings, and direct contact
+                for adult companionship and massage services in India.
               </p>
               <div className="mt-8 hidden gap-3 md:flex md:flex-row">
                 <Link
@@ -167,7 +209,7 @@ export default async function HomePage() {
                   href="/india"
                   className="rounded-xl border border-brand/60 bg-black/35 px-3 py-3.5 text-center text-sm font-bold text-paper backdrop-blur transition hover:-translate-y-0.5 hover:bg-brand/10 sm:px-7 sm:py-4 sm:text-base"
                 >
-                  Explore Locations
+                  Explore All Cities
                 </Link>
               </div>
               <div className="max-w-3xl md:mt-10">
@@ -182,6 +224,26 @@ export default async function HomePage() {
                 communication.
               </p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SEO Quick Metros Link Bar */}
+      <section className="border-b border-white/10 bg-black/40 py-6">
+        <div className="site-container">
+          <p className="text-xs font-bold uppercase tracking-wider text-muted">
+            Popular City Directories:
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {topIndianMetros.map((metro) => (
+              <Link
+                key={metro.citySlug}
+                href={`/india/${metro.stateSlug}/${metro.citySlug}`}
+                className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-paper transition hover:border-brand/60 hover:text-brand"
+              >
+                Call Girls in {metro.name}
+              </Link>
+            ))}
           </div>
         </div>
       </section>
@@ -204,7 +266,7 @@ export default async function HomePage() {
         <div className="site-container">
           <SectionHeading
             title="Find listings by category"
-            description="Choose a service category, then browse every country and city where approved listings are available. Category images can be uploaded from the admin panel."
+            description="Choose a service category, then browse every country and city where approved listings are available."
           />
           <div className="mt-12 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {categoryCards.map((category) => (
@@ -294,12 +356,13 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* Upgraded India Location Grid with Keyword-Rich Links */}
       <section className="border-y border-white/10 bg-surface/60 py-20">
         <div className="site-container">
           <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
             <SectionHeading
-              title="India location highlights"
-              description="Browse popular Indian states and cities here, or use global search for every configured country and region."
+              title="India Escorts & Companion Highlights"
+              description="Direct access to verified independent call girls, companion listings, and massage services across top Indian states."
             />
             <Link href="/india" className="font-bold text-brand">
               All India locations →
@@ -312,17 +375,17 @@ export default async function HomePage() {
                   href={`/india/${state.slug}`}
                   className="font-display text-lg font-bold tracking-[-0.04em] hover:text-brand sm:text-2xl"
                 >
-                  {state.name}
+                  {state.name} Escorts
                 </Link>
                 <ul className="mt-4 space-y-2.5 text-xs text-muted sm:mt-5 sm:space-y-3 sm:text-sm">
-                  {state.cities.slice(0, 5).map((stateCity) => (
+                  {state.cities.slice(0, 6).map((stateCity) => (
                     <li key={stateCity.slug}>
                       <Link
                         href={`/india/${state.slug}/${stateCity.slug}`}
                         className="inline-flex items-center gap-2 hover:text-paper"
                       >
                         <MapPin size={14} className="text-brand" />
-                        {stateCity.name}
+                        Call Girls in {stateCity.name}
                       </Link>
                     </li>
                   ))}
@@ -422,66 +485,4 @@ export default async function HomePage() {
               <Link
                 key={src}
                 href="/gallery"
-                className="group relative aspect-[4/3] overflow-hidden rounded-[20px] border border-white/12"
-              >
-                <Image
-                  src={src}
-                  alt={`Original fictional adult demo gallery image ${index + 1}`}
-                  fill
-                  sizes="(max-width: 640px) 100vw, 33vw"
-                  className="object-cover transition duration-500 group-hover:scale-[1.03]"
-                />
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="section-space">
-        <div className="site-container grid gap-14 lg:grid-cols-[0.8fr_1.2fr]">
-          <SectionHeading
-            title="Frequently asked questions"
-            description="Clear platform, consent and safety answers are visible to visitors and mirrored in eligible structured data."
-          />
-          <div className="divide-y divide-white/12 border-y border-white/12">
-            {faqs.map((faq) => (
-              <details key={faq.question} className="group py-5">
-                <summary className="cursor-pointer list-none pr-8 font-display text-lg font-bold marker:hidden">
-                  {faq.question}
-                  <span className="float-right text-brand group-open:rotate-45">+</span>
-                </summary>
-                <p className="mt-4 max-w-2xl leading-7 text-muted">{faq.answer}</p>
-              </details>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="pb-28">
-        <div className="site-container">
-          <div className="flex items-end justify-between gap-6">
-            <SectionHeading title="Latest safety and city guides" />
-            <Link href="/blog" className="font-bold text-brand">
-              All guides →
-            </Link>
-          </div>
-          <div className="mt-10 grid gap-5 md:grid-cols-3">
-            {blogPosts.slice(0, 3).map((post) => (
-              <article key={post.id} className="surface-border rounded-[20px] bg-surface p-6">
-                <h3 className="font-display text-xl font-bold">{post.title}</h3>
-                <p className="mt-4 leading-7 text-muted">{post.excerpt}</p>
-                <Link href={`/blog/${post.slug}`} className="mt-6 inline-block font-bold text-brand">
-                  Read guide →
-                </Link>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-    </>
-  );
-}
-
-// Featured profiles are moderation-driven data and must not leave a newly
-// approved or removed listing hidden behind the full-route cache.
-export const dynamic = "force-dynamic";
+                className="group relative aspect-[4/3] overflow-hidden rounded-[20px] border border-white/
