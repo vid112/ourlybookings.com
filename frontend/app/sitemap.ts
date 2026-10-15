@@ -33,32 +33,48 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     getBlogPosts(),
   ]);
 
+  const currentDate = new Date();
+
+  // Core Static Pages
   const staticPages: MetadataRoute.Sitemap = staticRoutes.map((route) => ({
     url: absoluteUrl(route),
+    lastModified: currentDate,
+    changeFrequency: route === "/" ? "daily" : "monthly",
+    priority: route === "/" ? 1.0 : 0.6,
   }));
 
+  // Indian States (High Priority for State-wide Searches)
   const statePages: MetadataRoute.Sitemap = indiaStates.map((state) => ({
     url: absoluteUrl(`/india/${state.slug}`),
+    lastModified: currentDate,
+    changeFrequency: "daily",
+    priority: 0.8,
   }));
 
+  // All Indian Cities (Top Crawl Priority - matches user intent)
   const cityPages: MetadataRoute.Sitemap = indiaStates.flatMap((state) =>
     state.cities.map((city) => ({
       url: absoluteUrl(`/india/${state.slug}/${city.slug}`),
+      lastModified: currentDate,
+      changeFrequency: "daily",
+      priority: 0.9,
     }))
   );
 
+  // Individual Profiles
   const profilePages: MetadataRoute.Sitemap = profiles.map((profile) => ({
     url: absoluteUrl(`/profiles/${profile.slug}`),
-    ...(profile.updatedAt && {
-      lastModified: new Date(profile.updatedAt),
-    }),
+    lastModified: profile.updatedAt ? new Date(profile.updatedAt) : currentDate,
+    changeFrequency: "weekly",
+    priority: 0.7,
   }));
 
+  // SEO Blog Posts
   const blogPages: MetadataRoute.Sitemap = blogPosts.map((post) => ({
     url: absoluteUrl(`/blog/${post.slug}`),
-    ...(post.publishedAt && {
-      lastModified: new Date(post.publishedAt),
-    }),
+    lastModified: post.publishedAt ? new Date(post.publishedAt) : currentDate,
+    changeFrequency: "monthly",
+    priority: 0.6,
   }));
 
   return [
